@@ -1,0 +1,48 @@
+import { Injectable } from '@nestjs/common'
+import { AddRoomDto } from './dto/add-room.dto'
+
+@Injectable()
+export class RoomsService {
+  private roomsByHotel: Record<string, any[]> = {}
+
+  addRoom(dto: AddRoomDto, hotelId?: string) {
+    const hid = hotelId || 'hotel_default'
+    if (!this.roomsByHotel[hid]) this.roomsByHotel[hid] = []
+    const room = {
+      id: `room_${(this.roomsByHotel[hid]?.length || 0) + 1}`,
+      room_number: dto.room_number,
+      type: dto.type,
+      price_per_night: dto.price_per_night,
+      currency: dto.currency,
+      status: 'AVAILABLE',
+      created_at: new Date(),
+    }
+
+    this.roomsByHotel[hid].push(room)
+
+    return room
+  }
+
+  listRooms(hotelId?: string) {
+    if (hotelId) return this.roomsByHotel[hotelId] || []
+    return Object.values(this.roomsByHotel).flat()
+  }
+
+  updateRoomStatus(room_number: string, status: string, hotelId?: string) {
+    const list = hotelId ? this.roomsByHotel[hotelId] || [] : Object.values(this.roomsByHotel).flat()
+    const room = list.find((r) => r.room_number === room_number)
+    if (!room) {
+      return null
+    }
+    room.status = status.toUpperCase()
+    return room
+  }
+
+  checkoutRoom(room_number: string, hotelId?: string) {
+    const list = hotelId ? this.roomsByHotel[hotelId] || [] : Object.values(this.roomsByHotel).flat()
+    const room = list.find((r) => r.room_number === room_number)
+    if (!room) return null
+    room.status = 'VACANT'
+    return room
+  }
+}
