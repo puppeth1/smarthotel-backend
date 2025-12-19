@@ -3,6 +3,13 @@ import ChatAgent from '@/components/ChatAgent'
 import DashboardCard from '@/components/DashboardCard'
 import { useEffect, useState } from 'react'
 import { useHotel } from '@/components/HotelProvider'
+import { DashboardCardKey } from '@/lib/dashboardCards'
+import CustomizeDashboardModal from '@/components/CustomizeDashboardModal'
+import DashboardCardsGrid from '@/components/DashboardCardsGrid'
+import { useDashboardMetrics } from '@/hooks/useDashboardMetrics'
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://smarthotel-backend-984031420056.asia-south1.run.app'
 
 function SidebarHeader() {
   const { hotel } = useHotel()
@@ -15,6 +22,14 @@ export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [addingTask, setAddingTask] = useState(false)
   const [newTask, setNewTask] = useState('')
+  const [selectedCards, setSelectedCards] = useState<DashboardCardKey[]>([])
+  const { data: metrics, loading } = useDashboardMetrics()
+  const [loadingSummary, setLoadingSummary] = useState(true)
+  const [customizeOpen, setCustomizeOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const { hotel } = useHotel()
+  const hasActiveType = ((hotel?.settings?.roomTypes as any[]) || []).some((v: any) => v?.active && (v?.count || 0) > 0)
+  const settingsIncomplete = !hotel?.settings?.totalTables || !hasActiveType
 
   useEffect(() => {
     try {
@@ -48,6 +63,48 @@ export default function HomePage() {
     return () => clearInterval(i)
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      try {
+        const cfgRes = await fetch(`${API_URL}/api/dashboard/config`)
+        const cfgJson = await cfgRes.json()
+        const cards: DashboardCardKey[] = (cfgJson?.cards || []) as DashboardCardKey[]
+        if (mounted && cards.length) setSelectedCards(cards)
+      } catch {}
+      if (mounted) {
+        try {
+          const saved = localStorage.getItem('dashboard_cards')
+          if (saved) {
+            const parsed = JSON.parse(saved)
+            if (Array.isArray(parsed)) setSelectedCards(parsed as DashboardCardKey[])
+          }
+        } catch {}
+      }
+      if (mounted) setLoadingSummary(false)
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
+  async function handleSave(cards: DashboardCardKey[]) {
+    setSelectedCards(cards)
+    try {
+      localStorage.setItem('dashboard_cards', JSON.stringify(cards))
+    } catch {}
+    setSaving(true)
+    try {
+      await fetch(`${API_URL}/api/dashboard/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cards: cards.slice(0, 8) }),
+      })
+      
+    } catch {}
+    setSaving(false)
+    setCustomizeOpen(false)
+  }
+
   return (
     <div className="h-screen overflow-hidden bg-white flex">
       <aside className="w-64 bg-[#F7F8FA] border-r border-[#E5E7EB] p-4">
@@ -55,7 +112,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-[#111827]">Tasks</span>
             <button
-              className="text-sm px-2 py-1 rounded bg-[#F9FAFB] border border-[#E5E7EB] hover:bg-[#D6F6E5]"
+              className="text-sm px-2 py-1 rounded bg-[#F9FAFB] border border-[#E5E7EB] hover:bg-accentSecondary"
               onClick={() => setAddingTask(!addingTask)}
             >
               ＋ Add Task
@@ -71,7 +128,7 @@ export default function HomePage() {
                 className="flex-1 border border-[#E5E7EB] rounded px-2 py-1 text-sm"
               />
               <button
-                className="px-3 py-1 rounded bg-[#E7F78F] text-black text-sm"
+                className="px-3 py-1 rounded bg-accentPrimary text-black text-sm"
                 onClick={() => {
                   if (newTask.trim()) {
                     const task: Task = { id: crypto.randomUUID(), text: newTask.trim(), done: false, createdAt: Date.now() }
@@ -104,7 +161,7 @@ export default function HomePage() {
                   }}
                 />
                 <button
-                  className={`flex-1 text-left hover:bg-[#D6F6E5] rounded px-1 ${t.done ? 'line-through text-[#6B7280]' : t.id?.startsWith('seed-') ? 'text-[#6B7280]' : 'text-[#111827]'}`}
+                  className={`flex-1 text-left hover:bg-accentSecondary rounded px-1 ${t.done ? 'line-through text-[#6B7280]' : t.id?.startsWith('seed-') ? 'text-[#6B7280]' : 'text-[#111827]'}`}
                   onClick={() => {
                     const ev = new CustomEvent('hp_task_selected', { detail: { text: t.text } })
                     window.dispatchEvent(ev)
@@ -119,17 +176,39 @@ export default function HomePage() {
       </aside>
 
       <main className="flex-1 p-6 overflow-hidden">
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <DashboardCard title="Rooms" value="18 / 24" subtitle="Occupied" accent="primary" />
-          <DashboardCard title="Vacant Rooms" value={6} />
-          <DashboardCard title="Cleaning Pending" value={3} />
-          <DashboardCard title="Today Flow" value="4 / 5" subtitle="Check-in / out" />
-
-          <DashboardCard title="Today Revenue" value="₹18,500" accent="primary" />
-          <DashboardCard title="Monthly Revenue" value="₹4,25,000" />
-          <DashboardCard title="Pending Payments" value="₹22,000" accent="primary" />
-          <DashboardCard title="Food Orders Today" value="12" subtitle="₹6,800" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-xl font-semibold text-[#111827]">Dashboard — {hotel.hotelName}</div>
+          <button
+            className="px-3 py-2 rounded bg-[#F9FAFB] border border-[#E5E7EB] hover:bg-accentSecondary"
+            onClick={() => setCustomizeOpen(true)}
+          >
+            Customize Dashboard
+          </button>
         </div>
+
+        {settingsIncomplete && (
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-[#F59E0B] bg-[#FEF3C7] px-3 py-2 text-[#92400E]">
+            <span className="mt-0.5">⚠️</span>
+            <div>
+              <div className="font-semibold">Please complete hotel settings to see accurate dashboard data</div>
+              <div className="text-sm text-[#B45309]">Configure room types and total tables in Settings.</div>
+            </div>
+          </div>
+        )}
+
+        {loadingSummary || loading ? (
+          <div className="p-3">Loading dashboard…</div>
+        ) : (
+          <DashboardCardsGrid cards={selectedCards} metrics={metrics} />
+        )}
+
+        {customizeOpen && (
+          <CustomizeDashboardModal
+            selectedCards={selectedCards}
+            onClose={() => setCustomizeOpen(false)}
+            onSave={handleSave}
+          />
+        )}
 
         <ChatAgent showSidebar={false} />
       </main>

@@ -4,7 +4,17 @@ import { Injectable } from '@nestjs/common'
 export class InventoryService {
   private itemsByHotel: Record<string, any[]> = {}
 
-  addItem(name: string, unit: string, stock: number, minStock = 1, hotelId?: string) {
+  addItem(
+    name: string,
+    unit: string,
+    stock: number,
+    minStock = 1,
+    category?: string,
+    cost?: number,
+    supplier?: string,
+    supplierPhone?: string,
+    hotelId?: string,
+  ) {
     const hid = hotelId || 'hotel_default'
     if (!this.itemsByHotel[hid]) this.itemsByHotel[hid] = []
     const item = {
@@ -13,6 +23,10 @@ export class InventoryService {
       unit,
       stock,
       min_stock: minStock,
+      category,
+      cost,
+      supplier,
+      supplier_phone: supplierPhone,
       created_at: new Date(),
     }
     this.itemsByHotel[hid].push(item)

@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common'
 export class MenuService {
   private itemsByHotel: Record<string, any[]> = {}
 
-  addItem(name: string, price: number, recipe: { item: string; qty: number; unit: string }[], hotelId?: string) {
+  addItem(name: string, price: number, recipe: { item: string; qty: number; unit: string }[], hotelId?: string, options: { category?: string; available?: boolean; preparationTime?: number; autoDisable?: boolean } = {}) {
     const hid = hotelId || 'hotel_default'
     if (!this.itemsByHotel[hid]) this.itemsByHotel[hid] = []
     const menuItem = {
@@ -12,7 +12,10 @@ export class MenuService {
       name,
       price,
       recipe,
-      available: true,
+      available: options.available ?? true,
+      category: options.category || 'Main Course',
+      preparationTime: options.preparationTime || 0,
+      autoDisable: options.autoDisable || false,
       created_at: new Date(),
     }
     this.itemsByHotel[hid].push(menuItem)

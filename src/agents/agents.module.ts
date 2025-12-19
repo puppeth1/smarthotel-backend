@@ -8,9 +8,10 @@ import { MenuModule } from '../menu/menu.module'
 import { OrdersModule } from '../orders/orders.module'
 import { TeamModule } from '../team/team.module'
 import { HotelsModule } from '../hotels/hotels.module'
+import { DashboardModule } from '../dashboard/dashboard.module'
 
 @Module({
-  imports: [RoomsModule, BillingModule, InventoryModule, MenuModule, OrdersModule, TeamModule, HotelsModule],
+  imports: [RoomsModule, BillingModule, InventoryModule, MenuModule, OrdersModule, TeamModule, HotelsModule, DashboardModule],
   controllers: [AgentController],
   providers: [AgentService],
 })

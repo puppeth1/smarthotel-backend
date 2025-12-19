@@ -7,6 +7,12 @@ import { MenuModule } from './menu/menu.module'
 import { OrdersModule } from './orders/orders.module'
 import { BillingModule } from './billing/billing.module'
 import { TeamModule } from './team/team.module'
+import { HotelsModule } from './hotels/hotels.module'
+import { DashboardModule } from './dashboard/dashboard.module'
+import { IntegrationsModule } from './integrations/integrations.module'
+import { AuthModule } from './auth/auth.module'
+import { UsersModule } from './users/users.module'
+import { ReservationsModule } from './reservations/reservations.module'
 
 @Module({
   imports: [
@@ -17,7 +23,12 @@ import { TeamModule } from './team/team.module'
     OrdersModule,
     BillingModule,
     TeamModule,
+    HotelsModule,
+    DashboardModule,
+    IntegrationsModule,
+    AuthModule,
+    UsersModule,
+    ReservationsModule,
   ],
 })
 export class AppModule {}
-

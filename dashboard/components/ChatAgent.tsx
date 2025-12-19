@@ -3,6 +3,13 @@ import { useEffect, useState } from 'react'
 import SettingsPanel from './SettingsPanel'
 import { useHotel } from './HotelProvider'
 import CheckInDrawer from './CheckInDrawer'
+import AddInventoryDrawer from './AddInventoryDrawer'
+import AddMenuDrawer from './AddMenuDrawer'
+import CreateOrderDrawer from './CreateOrderDrawer'
+import CheckoutDrawer from './CheckoutDrawer'
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://smarthotel-backend-984031420056.asia-south1.run.app'
 
 export default function ChatAgent({ showSidebar = true, useExternalInput = false }: { showSidebar?: boolean; useExternalInput?: boolean }) {
   const [input, setInput] = useState('')
@@ -12,20 +19,13 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
   const [tasks, setTasks] = useState<Task[]>([])
   const [addingTask, setAddingTask] = useState(false)
   const [newTask, setNewTask] = useState('')
-  const [helper, setHelper] = useState<null | 'room' | 'inventory' | 'menu' | 'order' | 'checkout'>(null)
-  const [roomNumber, setRoomNumber] = useState('101')
-  const [roomType, setRoomType] = useState('deluxe')
-  const [roomPrice, setRoomPrice] = useState('5000')
-  const [invName, setInvName] = useState('Tomato')
-  const [invQty, setInvQty] = useState('5')
-  const [invUnit, setInvUnit] = useState('kg')
-  const [menuName, setMenuName] = useState('Paneer Butter Masala')
-  const [menuPrice, setMenuPrice] = useState('280')
-  const [menuItem, setMenuItem] = useState('Paneer')
-  const [menuItemQty, setMenuItemQty] = useState('0.2')
-  const [menuItemUnit, setMenuItemUnit] = useState('kg')
+  // helper state removed in favor of drawers
   const [toast, setToast] = useState<string | null>(null)
   const [checkInOpen, setCheckInOpen] = useState(false)
+  const [inventoryOpen, setInventoryOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [orderOpen, setOrderOpen] = useState(false)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
 
   useEffect(() => {
     try {
@@ -112,14 +112,19 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
     setMessages((m) => [...m, { role: 'agent', text: reply }])
   }
 
-  async function submitAction(cmd: string) {
-    const res = await fetch('http://localhost:3000/api/agent/message', {
+  async function submitAction(cmd: string | any) {
+    const payload = typeof cmd === 'string' 
+      ? { text: cmd, actor_id: 'u_owner', tenant_id: 'hotel_default' }
+      : { ...cmd, actor_id: 'u_owner', tenant_id: 'hotel_default' }
+
+    const res = await fetch(`${API_URL}/api/agent/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: cmd, actor_id: 'u_owner', tenant_id: 'hotel_default' }),
+      body: JSON.stringify(payload),
     })
     const data = await res.json()
     setToast(typeof data?.message === 'string' ? data.message : 'Action completed')
+    window.dispatchEvent(new CustomEvent('hp_refresh_stats'))
   }
 
   async function answerQuestion(q: string) {
@@ -133,49 +138,32 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
       }
     }
 
-    // Rooms: vacant count
-    if (text.includes('vacant') && text.includes('room')) {
-      const res = await fetch('http://localhost:3000/api/rooms')
-      const json = await res.json()
-      const rooms = json?.data || []
-      const vacant = rooms.filter((r: any) => (r.status || '').toUpperCase() === 'VACANT').length
-      const total = rooms.length
-      return `Vacant Rooms: ${vacant} / ${total}`
-    }
-
-    // Pending payments: invoices UNPAID
-    if (text.includes('pending') && text.includes('payment')) {
-      const res = await fetch('http://localhost:3000/api/billing/invoices')
-      const json = await res.json()
-      const inv = json?.data || []
-      const pending = inv.filter((i: any) => (i.status || '').toUpperCase() === 'UNPAID')
-      const totalAmt = pending.reduce((s: number, i: any) => s + (i.amount || 0), 0)
-      return `Pending Payments: ${pending.length} invoices · Total ${formatINR(totalAmt)}`
-    }
-
-    // Orders today count
-    if ((text.includes('orders') && text.includes('today')) || text.includes('food orders')) {
-      const res = await fetch('http://localhost:3000/api/orders')
-      const json = await res.json()
-      const orders = json?.data || []
-      const today = new Date().toDateString()
-      const todayOrders = orders.filter((o: any) => new Date(o.created_at).toDateString() === today)
-      return `Orders Today: ${todayOrders.length}`
-    }
-
-    // Yearly revenue from invoices
-    if (text.includes('yearly revenue') || (text.includes('revenue') && text.includes('year'))) {
-      const year = new Date().getFullYear()
-      const res = await fetch('http://localhost:3000/api/billing/invoices')
-      const json = await res.json()
-      const inv = (json?.data || []).filter((i: any) => new Date(i.created_at).getFullYear() === year)
-      const total = inv.reduce((s: number, i: any) => s + (i.amount || 0), 0)
-      return `Yearly Revenue (${year})\n${formatINR(total)}`
+    // Use Dashboard Stats API for common metrics
+    if (text.includes('vacant') || text.includes('revenue') || text.includes('orders') || text.includes('pending')) {
+      try {
+        const res = await fetch(`${API_URL}/api/dashboard/stats`)
+        const stats = await res.json()
+        
+        if (text.includes('vacant')) {
+          return `Vacant Rooms: ${stats.vacantRooms} / ${stats.totalRooms}`
+        }
+        if (text.includes('pending')) {
+          return `Pending Payments: ${stats.pendingPayments}`
+        }
+        if (text.includes('orders')) {
+          return `Orders Today: ${stats.foodOrdersToday}`
+        }
+        if (text.includes('revenue')) {
+           return `Revenue Today: ${formatINR(stats.todayRevenue)}\nMonthly: ${formatINR(stats.monthlyRevenue)}`
+        }
+      } catch {
+        return 'Could not fetch stats.'
+      }
     }
 
     // Inventory low items (stock <= min_stock)
     if (text.includes('inventory') && (text.includes('low') || text.includes('alert'))) {
-      const res = await fetch('http://localhost:3000/api/inventory')
+      const res = await fetch(`${API_URL}/api/inventory`)
       const json = await res.json()
       const items = json?.data || []
       const low = items.filter((i: any) => (i.stock || 0) <= (i.min_stock ?? 0))
@@ -198,6 +186,9 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
             </li>
             <li className="text-textPrimary">
               <button className="w-full text-left" onClick={() => setPage('home')}>Rooms</button>
+            </li>
+            <li className="text-textPrimary">
+              <button className="w-full text-left" onClick={() => setPage('home')}>Reservations</button>
             </li>
             <li className="text-textPrimary">
               <button className="w-full text-left" onClick={() => setPage('home')}>Menu</button>
@@ -302,77 +293,29 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
           </button>
           <button
             className="px-3 py-2 rounded-lg bg-bgSoft text-textPrimary border border-borderLight hover:bg-accentSecondary"
-            onClick={() => setHelper(helper === 'inventory' ? null : 'inventory')}
+            onClick={() => setInventoryOpen(true)}
           >
             📦 Add Inventory
           </button>
           <button
             className="px-3 py-2 rounded-lg bg-bgSoft text-textPrimary border border-borderLight hover:bg-accentSecondary"
-            onClick={() => setHelper(helper === 'menu' ? null : 'menu')}
+            onClick={() => setMenuOpen(true)}
           >
-            🍽 Add Menu Item
+            🍽 Add Menu
           </button>
           <button
             className="px-3 py-2 rounded-lg bg-bgSoft text-textPrimary border border-borderLight hover:bg-accentSecondary"
-            onClick={() => setHelper(helper === 'order' ? null : 'order')}
+            onClick={() => setOrderOpen(true)}
           >
             🧾 Create Order
           </button>
           <button
             className="px-3 py-2 rounded-lg bg-bgSoft text-textPrimary border border-borderLight hover:bg-accentSecondary"
-            onClick={() => setHelper(helper === 'checkout' ? null : 'checkout')}
+            onClick={() => setCheckoutOpen(true)}
           >
             💳 Invoice / Checkout
           </button>
         </div>
-
-        {helper === 'room' && (
-          <div className="mt-3 grid grid-cols-4 gap-2 bg-bgSoft border border-borderLight rounded p-3">
-            <input className="border border-borderLight rounded px-2 py-1" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="Room #" />
-            <input className="border border-borderLight rounded px-2 py-1" value={roomType} onChange={(e) => setRoomType(e.target.value)} placeholder="Type" />
-            <input className="border border-borderLight rounded px-2 py-1" value={roomPrice} onChange={(e) => setRoomPrice(e.target.value)} placeholder="Price" />
-            <button className="bg-accentPrimary text-textPrimary rounded px-3" onClick={() => submitAction(`Add room ${roomNumber} as ${roomType} price ${roomPrice}`)}>Submit</button>
-          </div>
-        )}
-
-        {helper === 'inventory' && (
-          <div className="mt-3 grid grid-cols-5 gap-2 bg-bgSoft border border-borderLight rounded p-3">
-            <input className="border border-borderLight rounded px-2 py-1" value={invName} onChange={(e) => setInvName(e.target.value)} placeholder="Item" />
-            <input className="border border-borderLight rounded px-2 py-1" value={invQty} onChange={(e) => setInvQty(e.target.value)} placeholder="Qty" />
-            <input className="border border-borderLight rounded px-2 py-1" value={invUnit} onChange={(e) => setInvUnit(e.target.value)} placeholder="Unit" />
-            <div />
-            <button className="bg-accentPrimary text-textPrimary rounded px-3" onClick={() => submitAction(`Add inventory ${invName} ${invQty} ${invUnit}`)}>Submit</button>
-          </div>
-        )}
-
-        {helper === 'menu' && (
-          <div className="mt-3 grid grid-cols-6 gap-2 bg-bgSoft border border-borderLight rounded p-3">
-            <input className="border border-borderLight rounded px-2 py-1" value={menuName} onChange={(e) => setMenuName(e.target.value)} placeholder="Dish" />
-            <input className="border border-borderLight rounded px-2 py-1" value={menuPrice} onChange={(e) => setMenuPrice(e.target.value)} placeholder="Price" />
-            <input className="border border-borderLight rounded px-2 py-1" value={menuItem} onChange={(e) => setMenuItem(e.target.value)} placeholder="Ingredient" />
-            <input className="border border-borderLight rounded px-2 py-1" value={menuItemQty} onChange={(e) => setMenuItemQty(e.target.value)} placeholder="Qty" />
-            <input className="border border-borderLight rounded px-2 py-1" value={menuItemUnit} onChange={(e) => setMenuItemUnit(e.target.value)} placeholder="Unit" />
-            <button className="bg-accentPrimary text-textPrimary rounded px-3" onClick={() => submitAction(`Add menu ${menuName} ${menuPrice} uses ${menuItem} ${menuItemQty} ${menuItemUnit}`)}>Submit</button>
-          </div>
-        )}
-
-        {helper === 'order' && (
-          <div className="mt-3 grid grid-cols-4 gap-2 bg-bgSoft border border-borderLight rounded p-3">
-            <input className="border border-borderLight rounded px-2 py-1" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="Room #" />
-            <div />
-            <div />
-            <button className="bg-accentPrimary text-textPrimary rounded px-3" onClick={() => submitAction(`Create food order for room ${roomNumber}`)}>Submit</button>
-          </div>
-        )}
-
-        {helper === 'checkout' && (
-          <div className="mt-3 grid grid-cols-4 gap-2 bg-bgSoft border border-borderLight rounded p-3">
-            <input className="border border-borderLight rounded px-2 py-1" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="Room #" />
-            <div />
-            <div />
-            <button className="bg-accentPrimary text-textPrimary rounded px-3" onClick={() => submitAction(`Checkout room ${roomNumber}`)}>Submit</button>
-          </div>
-        )}
 
         <div className="flex flex-col bg-bg border border-borderLight rounded-xl h-[300px]">
           <div className="flex-1 min-h-0 p-3 space-y-2 overflow-y-auto">
@@ -400,6 +343,10 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
           </div>
         </div>
         <CheckInDrawer open={checkInOpen} onClose={() => setCheckInOpen(false)} />
+        <AddInventoryDrawer open={inventoryOpen} onClose={() => setInventoryOpen(false)} onSave={submitAction} />
+        <AddMenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} onSave={submitAction} />
+        <CreateOrderDrawer open={orderOpen} onClose={() => setOrderOpen(false)} onSave={submitAction} />
+        <CheckoutDrawer open={checkoutOpen} onClose={() => { setCheckoutOpen(false); window.dispatchEvent(new CustomEvent('hp_refresh_stats')); }} room={null} />
           </>
         )}
       </section>

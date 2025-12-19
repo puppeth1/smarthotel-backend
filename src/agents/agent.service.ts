@@ -10,6 +10,7 @@ import { MenuService } from '../menu/menu.service'
 import { OrdersService } from '../orders/orders.service'
 import { HotelsService } from '../hotels/hotels.service'
 import { TeamService } from '../team/team.service'
+import { DashboardService } from '../dashboard/dashboard.service'
 import { normalizeRoomType } from '../rooms/room.types'
 
 @Injectable()
@@ -22,6 +23,7 @@ export class AgentService {
     private readonly ordersService: OrdersService,
     private readonly hotelsService: HotelsService,
     private readonly teamService: TeamService,
+    private readonly dashboardService: DashboardService,
   ) {}
 
   private pendingConfirmation: { action: string; payload: any } | null = null
@@ -83,6 +85,21 @@ export class AgentService {
       return { status: 'success', action: 'SWITCH_HOTEL', data: hotel }
     }
 
+    // ================= DASHBOARD STATS =================
+    if (text === 'stats' || text === 'dashboard' || text === 'show stats') {
+      return this.ok(this.dashboardService.getStats(hotelId))
+    }
+    
+    if (text.includes('how many') && text.includes('vacant')) {
+       const s = this.dashboardService.getStats(hotelId)
+       return this.ok({ vacantRooms: s.vacantRooms, message: `There are ${s.vacantRooms} vacant rooms.` })
+    }
+
+    if (text.includes('revenue')) {
+        const s = this.dashboardService.getStats(hotelId)
+        return this.ok({ todayRevenue: s.todayRevenue, monthlyRevenue: s.monthlyRevenue })
+     }
+
     // ================= ROOMS =================
     if (
       text === 'list rooms' ||
@@ -125,6 +142,30 @@ export class AgentService {
     // ================= MENU =================
     if (text === 'list menu')
       return this.ok(this.menuService.listItems(hotelId))
+
+    if (text.startsWith('add_menu_json')) {
+      this.require(actorId, 'MENU')
+      try {
+        const jsonStr = raw.replace(/^add_menu_json\s*/i, '')
+        const data = JSON.parse(jsonStr)
+        return this.ok(
+          this.menuService.addItem(
+            data.name,
+            Number(data.price),
+            data.recipe || [],
+            hotelId,
+            {
+              category: data.category,
+              available: data.available,
+              preparationTime: data.preparationTime,
+              autoDisable: data.autoDisable
+            }
+          )
+        )
+      } catch (e) {
+        return this.error('Invalid JSON format')
+      }
+    }
 
     if (text.startsWith('add menu')) {
       this.require(actorId, 'MENU')
@@ -233,11 +274,41 @@ export class AgentService {
   }
 
   private handleAddInventory(raw: string, hotelId: string) {
-    const m = raw.match(/add\s+inventory\s+(.+?)\s+(\d+)\s+(\w+)/i)
+    // Basic match: add inventory <Name> <Qty> <Unit> <Optional Extras>
+    // Extras: min <n>, category <str>, cost <n>, supplier <str>, phone <str>
+    const m = raw.match(/add\s+inventory\s+(.+?)\s+(\d+)\s+(\w+)(.*)/i)
     if (!m) return this.usage('Add inventory Paneer 5 kg')
 
+    const name = m[1].trim()
+    const qty = Number(m[2])
+    const unit = m[3].trim()
+    const extras = m[4] || ''
+
+    // Parse extras
+    const minMatch = extras.match(/min\s+(\d+)/i)
+    const catMatch = extras.match(/category\s+([a-z]+)/i)
+    const costMatch = extras.match(/cost\s+(\d+)/i)
+    const supMatch = extras.match(/supplier\s+(.+?)(\s+phone|$)/i)
+    const phoneMatch = extras.match(/phone\s+([\d\-\+]+)/i)
+
+    const minStock = minMatch ? Number(minMatch[1]) : 1
+    const category = catMatch ? catMatch[1] : undefined
+    const cost = costMatch ? Number(costMatch[1]) : undefined
+    const supplier = supMatch ? supMatch[1].trim() : undefined
+    const phone = phoneMatch ? phoneMatch[1] : undefined
+
     return this.ok(
-      this.inventoryService.addItem(m[1], m[3], Number(m[2]), 1, hotelId),
+      this.inventoryService.addItem(
+        name,
+        unit,
+        qty,
+        minStock,
+        category,
+        cost,
+        supplier,
+        phone,
+        hotelId,
+      ),
     )
   }
 
