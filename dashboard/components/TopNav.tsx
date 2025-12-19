@@ -15,7 +15,7 @@ export default function TopNav() {
 
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
-      <Link href="/" className="flex items-center gap-3">
+      <Link href="/dashboard" className="flex items-center gap-3">
         {/* Logo Placeholder */}
         {logoUrl ? (
           <img src={logoUrl} alt="Hotel Logo" className="w-8 h-8 rounded object-cover" />

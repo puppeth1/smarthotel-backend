@@ -82,7 +82,7 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
     setFormData((prev: any) => ({
       ...prev,
       room_type: type,
-      price_per_night: config?.price || prev.price_per_night,
+      price_per_night: config?.basePrice ?? prev.price_per_night,
       room_number: '' // Reset room number as type changed
     }))
   }

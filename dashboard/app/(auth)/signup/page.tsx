@@ -3,13 +3,25 @@
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useContext, useEffect } from "react";
+import { AuthContext } from "@/components/AuthProvider";
+
+import Link from "next/link";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { user, loading } = useContext(AuthContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, loading, router]);
+
+  if (loading) return null;
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -53,10 +65,17 @@ export default function SignupPage() {
 
         <button
           type="submit"
-          className="w-full bg-black text-white py-2 rounded"
+          className="w-full bg-black text-white py-2 rounded mb-4"
         >
           Sign Up
         </button>
+
+        <p className="text-sm text-center text-gray-600">
+          Already have an account?{" "}
+          <Link href="/login" className="text-blue-600 hover:underline">
+            Login
+          </Link>
+        </p>
       </form>
     </div>
   );

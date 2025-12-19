@@ -3,13 +3,25 @@
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useContext, useEffect } from "react";
+import { AuthContext } from "@/components/AuthProvider";
+
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { user, loading } = useContext(AuthContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, loading, router]);
+
+  if (loading) return null; // Or a spinner
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -17,7 +29,7 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err: any) {
       setError("Invalid credentials");
     }
@@ -53,10 +65,17 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="w-full bg-black text-white py-2 rounded"
+          className="w-full bg-black text-white py-2 rounded mb-4"
         >
           Login
         </button>
+
+        <p className="text-sm text-center text-gray-600">
+          Don't have an account?{" "}
+          <Link href="/signup" className="text-blue-600 hover:underline">
+            Sign up
+          </Link>
+        </p>
       </form>
     </div>
   );

@@ -32,7 +32,7 @@ export default function OnboardingPage() {
       })
       const json = await res.json()
       if (json?.data?.id) {
-        router.push('/')
+        router.push('/dashboard')
       } else {
         setError(json?.message || 'Failed to create hotel')
       }
