@@ -11,7 +11,8 @@ export interface Reservation {
   nights: number;
   price_per_night: number;
   source: string;
-  status: 'CONFIRMED' | 'TENTATIVE' | 'CANCELLED' | 'CHECKED_IN';
+  status: 'CONFIRMED' | 'TENTATIVE' | 'CANCELLED' | 'CHECKED_IN' | 'COMPLETED';
+  payment_status?: 'PAID' | 'PARTIAL' | 'NOT_PAID';
   notes?: string;
   created_at: number;
 }

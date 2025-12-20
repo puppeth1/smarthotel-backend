@@ -3,10 +3,10 @@ import { Injectable } from '@nestjs/common'
 import { HotelsService } from '../hotels/hotels.service'
 import { OrdersService } from '../orders/orders.service'
 import { RoomsService } from '../rooms/rooms.service'
+import { ReservationsService } from '../reservations/reservations.service'
 import { PdfService } from './pdf.service'
 import { StorageService } from './storage.service'
 import { Invoice, InvoiceStatus, Payment } from './billing.types'
-import * as templates from './templates'
 
 @Injectable()
 export class BillingService {
@@ -16,6 +16,7 @@ export class BillingService {
     private readonly hotelsService: HotelsService,
     private readonly ordersService: OrdersService,
     private readonly roomsService: RoomsService,
+    private readonly reservationsService: ReservationsService,
     private readonly pdfService: PdfService,
     private readonly storageService: StorageService,
   ) {}
@@ -169,32 +170,16 @@ export class BillingService {
         hotel: { ...hotel, taxPercentage: taxCfg.percentage },
         guest: { name: 'Guest', phone: '' }, // Placeholder until Guest Management is added
         room,
-        orders: roomOrders
+        orders: roomOrders,
+        nights: 1 // Default to 1 for generation view
     };
     
-    let html = '';
-    switch (template) {
-        case 'hotel_detailed':
-            html = templates.hotelDetailedTemplate(templateData);
-            break;
-        case 'hotel_restaurant':
-            html = templates.hotelRestaurantTemplate(templateData);
-            break;
-        case 'minimal':
-            html = templates.minimalTemplate(templateData);
-            break;
-        case 'classic_gst':
-        default:
-            html = templates.classicGstTemplate(templateData);
-            break;
-    }
-    
-    const pdfBuffer = await this.pdfService.generatePdf(html);
+    const pdfBuffer = await this.pdfService.generateInvoicePdf(templateData);
     const filename = `${invoiceId}.pdf`;
     await this.storageService.saveFile(filename, pdfBuffer);
     
     // Return API URL
-    const pdfUrl = `/api/billing/invoices/download/${filename}`;
+    const pdfUrl = `/billing/invoices/download/${filename}`;
     
     return {
         invoiceId,
@@ -213,7 +198,8 @@ export class BillingService {
     hotelId?: string,
     guest?: { name?: string, phone?: string },
     orderIds?: string[],
-    items?: Array<{ description: string, amount: number }>
+    items?: Array<{ description: string, amount: number }>,
+    bookingId?: string // NEW: Booking ID for existing reservations
   }) {
     const hid = payload.hotelId || 'hotel_default';
     const type = payload.type || 'ROOM';
@@ -252,6 +238,17 @@ export class BillingService {
         sum + order.items.reduce((s: number, i: any) => s + ((Number(i.price)||0) * (Number(i.quantity)||1)), 0)
       ), 0);
 
+      // COMPLETE BOOKING IF EXISTS
+      if (payload.bookingId) {
+        try {
+            await this.reservationsService.complete(payload.bookingId, hid);
+        } catch (e) {
+            console.error('Failed to complete reservation', e);
+            // Non-blocking? Or should we block? 
+            // Blocking is safer to ensure consistency.
+        }
+      }
+
     } else if (type === 'FOOD') {
       if (payload.orderIds && payload.orderIds.length > 0) {
         const allOrders = this.ordersService.listOrders(hid);
@@ -262,12 +259,7 @@ export class BillingService {
         ), 0);
       }
     } else if (type === 'MANUAL') {
-       // Manual items are handled via extras or separate items list? 
-       // The template supports 'extras' and 'orders'. 
-       // We can map manual items to 'extras' for simplicity or pretend they are order items.
-       // The UI sends 'items' in 'extras' usually for manual stuff in existing code? 
-       // Actually user request says "Invoice Items: Description Amount". 
-       // We can treat them as 'extras'.
+       // Manual items are handled via extras
     }
 
     const settings = this.hotelsService.getSettings(hid) || {};
@@ -304,7 +296,7 @@ export class BillingService {
       payments: []
     };
 
-    // Initial payment
+    // Process Payment
     if (payload.payment && Number(payload.payment.amount) > 0) {
       const payment: Payment = {
         id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -315,46 +307,30 @@ export class BillingService {
       invoice.payments.push(payment);
       invoice.paidAmount = payment.amount;
       invoice.balance = Math.max(0, invoice.amount - invoice.paidAmount);
+      
       invoice.status = invoice.balance <= 0 ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID;
       if (invoice.status === InvoiceStatus.PAID) {
-        invoice.paid_at = new Date();
-        invoice.payment_method = payload.payment.method;
+          invoice.paid_at = new Date();
+          invoice.payment_method = payload.payment.method;
       }
     }
 
     if (!this.invoicesByHotel[hid]) this.invoicesByHotel[hid] = [];
     this.invoicesByHotel[hid].push(invoice);
 
-    // Side Effects
+    // Post-Checkout Cleanup
     if (type === 'ROOM' && payload.roomNumber) {
+      // Mark room as VACANT
       this.roomsService.updateRoomStatus(payload.roomNumber, 'VACANT', hid);
     }
     
-    // Mark orders as PAID
+    // Mark orders as paid
     if (roomOrders.length > 0) {
       roomOrders.forEach(o => {
         this.ordersService.updateStatus(o.id, 'PAID', hid);
       });
     }
 
-    // Generate PDF
-    const templateData = {
-      invoice,
-      hotel: { ...hotel, taxPercentage: taxCfg.percentage },
-      guest: { name: payload.guest?.name || 'Guest', phone: payload.guest?.phone || '' },
-      room, // Can be null
-      orders: roomOrders,
-      nights,
-      extras: payload.extras || []
-    };
-    
-    // Choose template based on type? Or just use classic
-    const html = templates.classicGstTemplate(templateData);
-    const pdfBuffer = await this.pdfService.generatePdf(html);
-    const filename = `${invoiceId}.pdf`;
-    await this.storageService.saveFile(filename, pdfBuffer);
-
-    const pdfUrl = `/api/billing/invoices/download/${filename}`;
-    return { invoiceId, pdfUrl, invoice };
+    return { invoiceId, invoice };
   }
 }

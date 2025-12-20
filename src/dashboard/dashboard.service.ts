@@ -73,7 +73,7 @@ export class DashboardService {
             });
         } 
         // Fallback for legacy data (if status is PAID but no payments array)
-        else if (inv.status === 'PAID' && inv.paid_at && (!inv.payments || inv.payments.length === 0)) {
+        else if (inv.status === 'PAID' && inv.paid_at && (!inv.payments || (inv.payments as any[]).length === 0)) {
              const d = new Date(inv.paid_at);
              if (d >= startOfDay) todayRevenue += (Number(inv.amount) || 0);
              if (d >= startOfMonth) monthlyRevenue += (Number(inv.amount) || 0);

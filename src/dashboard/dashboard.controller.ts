@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common'
 import { DashboardService } from './dashboard.service'
 import { HotelsService } from '../hotels/hotels.service'
 
-@Controller('api/dashboard')
+@Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService, private readonly hotelsService: HotelsService) {}
 

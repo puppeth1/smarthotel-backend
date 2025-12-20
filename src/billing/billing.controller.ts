@@ -35,9 +35,10 @@ export class BillingController {
         extras: body.extras,
         hotelId: body.hotelId,
         guest: body.guest,
+        bookingId: body.bookingId,
       });
       return { status: 'success', data: result };
-    } catch (error) {
+    } catch (error: any) {
       return { status: 'error', message: error.message };
     }
   }
@@ -47,7 +48,7 @@ export class BillingController {
       try {
           const result = await this.billingService.generateInvoicePdf(body.roomNumber, body.template, body.hotelId);
           return { status: 'success', data: result };
-      } catch (error) {
+      } catch (error: any) {
           return { status: 'error', message: error.message };
       }
   }

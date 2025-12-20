@@ -20,8 +20,13 @@ export class RoomsService {
     if (!enabled) throw new Error('Room type is inactive or count is zero')
     const existingCount = this.roomsByHotel[hid].filter((r) => this.toTypeKey(r.type) === key).length
     if (existingCount >= (configured.count || 0)) throw new Error('Room count limit reached for this type')
+    
+    // Check for duplicate room number
+    const duplicate = this.roomsByHotel[hid].find(r => r.room_number === dto.room_number)
+    if (duplicate) throw new Error('Room number already exists')
+
     const room = {
-      id: `room_${(this.roomsByHotel[hid]?.length || 0) + 1}`,
+      id: `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       room_number: dto.room_number,
       type: dto.type,
       price_per_night: dto.price_per_night,
@@ -55,6 +60,28 @@ export class RoomsService {
     const room = list.find((r) => r.room_number === room_number)
     if (!room) return null
     room.status = 'VACANT'
+    return room
+  }
+
+  deleteRoom(id: string, hotelId?: string) {
+    const hid = hotelId || 'hotel_default'
+    if (!this.roomsByHotel[hid]) return false
+    
+    const initialLength = this.roomsByHotel[hid].length
+    this.roomsByHotel[hid] = this.roomsByHotel[hid].filter(r => r.id !== id)
+    
+    return this.roomsByHotel[hid].length < initialLength
+  }
+
+  updateRoom(id: string, updates: any, hotelId?: string) {
+    const hid = hotelId || 'hotel_default'
+    if (!this.roomsByHotel[hid]) return null
+    
+    const room = this.roomsByHotel[hid].find(r => r.id === id)
+    if (!room) return null
+    
+    // Apply updates
+    Object.assign(room, updates)
     return room
   }
 

@@ -12,22 +12,55 @@ export class ReservationsService {
     return this.reservations.filter(r => r.hotel_id === hotelId);
   }
 
-  create(data: Omit<Reservation, 'id' | 'created_at' | 'hotel_id'>, hotelId: string) {
+  findActive(hotelId: string, roomNumber?: string) {
+    return this.reservations.filter(r => {
+      if (r.hotel_id !== hotelId) return false;
+      if (!['CHECKED_IN', 'CONFIRMED'].includes(r.status)) return false;
+      if (roomNumber && r.room_number !== roomNumber) return false;
+      return true;
+    });
+  }
+
+  create(data: any, hotelId: string) {
+    // Map camelCase payload (from Save Check-In) to snake_case (internal model)
+    const mappedData: Partial<Reservation> = {
+      guest_name: data.guestName || data.guest_name,
+      room_number: data.roomId || data.room_number,
+      room_type: data.roomType || data.room_type,
+      phone: data.phone,
+      email: data.email,
+      check_in: data.checkIn || data.check_in,
+      check_out: data.checkOut || data.check_out,
+      nights: data.nights || 1, // Default to 1 if missing
+      price_per_night: data.pricePerNight || data.price_per_night,
+      source: data.source || 'WALK_IN',
+      status: data.status || 'CHECKED_IN', // Default to CHECKED_IN for this flow if not specified
+      notes: data.notes,
+      payment_status: (data.paymentStatus || data.payment_status || 'NOT_PAID').toUpperCase(),
+    };
+
     // Basic validation
-    if (data.room_number) {
-      const hasOverlap = this.checkOverlap(data.room_number, data.check_in, data.check_out, hotelId);
+    if (mappedData.room_number) {
+      const hasOverlap = this.checkOverlap(mappedData.room_number, mappedData.check_in!, mappedData.check_out!, hotelId);
       if (hasOverlap) {
         throw new BadRequestException('Room is already booked for these dates');
       }
     }
 
     const reservation: Reservation = {
-      ...data,
+      ...(mappedData as Reservation), // Type assertion since we mapped fields
       id: `res_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       hotel_id: hotelId,
       created_at: Date.now(),
     };
     this.reservations.push(reservation);
+
+    // Sync Booking → Room Management (REQUIRED)
+    // If status is CHECKED_IN, update room status to OCCUPIED
+    if (reservation.status === 'CHECKED_IN' && reservation.room_number) {
+      this.roomsService.updateRoomStatus(reservation.room_number, 'OCCUPIED', hotelId);
+    }
+
     return reservation;
   }
 
@@ -70,6 +103,24 @@ export class ReservationsService {
         // Mocking guest info attachment
         (room as any).guest_name = res.guest_name;
         (room as any).current_reservation_id = res.id;
+    }
+
+    return res;
+  }
+
+  findById(id: string, hotelId: string) {
+    return this.reservations.find(r => r.id === id && r.hotel_id === hotelId);
+  }
+
+  complete(id: string, hotelId: string) {
+    const res = this.reservations.find(r => r.id === id && r.hotel_id === hotelId);
+    if (!res) throw new BadRequestException('Reservation not found');
+    
+    res.status = 'COMPLETED';
+    
+    // Mark room as VACANT
+    if (res.room_number) {
+        this.roomsService.updateRoomStatus(res.room_number, 'VACANT', hotelId);
     }
 
     return res;

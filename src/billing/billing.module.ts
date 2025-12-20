@@ -1,5 +1,5 @@
 
-import { Module } from '@nestjs/common'
+import { Module, forwardRef } from '@nestjs/common'
 import { BillingService } from './billing.service'
 import { BillingController } from './billing.controller'
 import { CheckoutController } from './checkout.controller'
@@ -10,8 +10,10 @@ import { UsersModule } from '../users/users.module'
 import { PdfService } from './pdf.service'
 import { StorageService } from './storage.service'
 
+import { ReservationsModule } from '../reservations/reservations.module'
+
 @Module({
-  imports: [HotelsModule, OrdersModule, RoomsModule, UsersModule],
+  imports: [HotelsModule, OrdersModule, RoomsModule, UsersModule, forwardRef(() => ReservationsModule)],
   providers: [BillingService, PdfService, StorageService],
   controllers: [BillingController, CheckoutController],
   exports: [BillingService],
