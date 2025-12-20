@@ -14,9 +14,9 @@ export default function TopNav() {
   const logoUrl = hotelContext?.hotel?.settings?.branding?.logoUrl || hotelContext?.hotel?.settings?.hotelInfo?.logoUrl;
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
+    <header className="flex items-center justify-between px-6 py-4 bg-white border-b relative z-30">
       <Link href="/dashboard" className="flex items-center gap-3">
-        {/* Logo Placeholder */}
+        {/* Logo or Placeholder */}
         {logoUrl ? (
           <img src={logoUrl} alt="Hotel Logo" className="w-8 h-8 rounded object-cover" />
         ) : (

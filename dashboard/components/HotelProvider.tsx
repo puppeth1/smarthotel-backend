@@ -103,7 +103,7 @@ export function HotelProvider({ children }: { children: React.ReactNode }) {
     async function load() {
       try {
         const token = user ? await user.getIdToken() : ''
-        const res = await fetch(`${API_URL}/api/hotels/active`, {
+        const res = await fetch(`${API_URL}/hotels/active`, {
           headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         })
         if (res.ok) {
@@ -131,7 +131,7 @@ export function HotelProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const token = user ? await user.getIdToken() : ''
-        const ires = await fetch(`${API_URL}/api/settings/hotel-info`, {
+        const ires = await fetch(`${API_URL}/settings/hotel-info`, {
           headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         })
         if (ires.ok) {
@@ -150,7 +150,7 @@ export function HotelProvider({ children }: { children: React.ReactNode }) {
       } catch {}
       try {
         const token = user ? await user.getIdToken() : ''
-        const sres = await fetch(`${API_URL}/api/hotel/settings`, {
+        const sres = await fetch(`${API_URL}/hotel/settings`, {
           headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         })
         if (sres.ok) {
@@ -211,7 +211,7 @@ export function HotelProvider({ children }: { children: React.ReactNode }) {
       setHotelState((prev) => ({ ...prev, hotelName: title, name: title }))
       try {
         const token = user ? await user.getIdToken() : ''
-        await fetch(`${API_URL}/api/hotels/${hotel.hotelId}`, {
+        await fetch(`${API_URL}/hotels/${hotel.hotelId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: JSON.stringify({ name: title }),
@@ -223,7 +223,7 @@ export function HotelProvider({ children }: { children: React.ReactNode }) {
       setHotelState((p) => ({ ...p, settings: payload }))
       try {
         const token = user ? await user.getIdToken() : ''
-        await fetch(`${API_URL}/api/hotel/settings`, {
+        await fetch(`${API_URL}/hotel/settings`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: JSON.stringify(payload),
@@ -247,7 +247,7 @@ export function HotelProvider({ children }: { children: React.ReactNode }) {
       setHotelState((prev) => ({ ...prev, hotelName: title, name: title, settings: { ...prev.settings, hotelInfo: info } }))
       try {
         const token = user ? await user.getIdToken() : ''
-        await fetch(`${API_URL}/api/settings/hotel-info`, {
+        await fetch(`${API_URL}/settings/hotel-info`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           body: JSON.stringify(info),

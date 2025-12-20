@@ -1,7 +1,9 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
+import { AuthContext } from '@/components/AuthProvider'
 import SettingsPanel from './SettingsPanel'
 import { useHotel } from './HotelProvider'
+import { useRoomsEngine } from '@/lib/rooms-engine'
 import CheckInDrawer from './CheckInDrawer'
 import AddInventoryDrawer from './AddInventoryDrawer'
 import AddMenuDrawer from './AddMenuDrawer'
@@ -12,6 +14,10 @@ const API_URL =
   'https://smarthotel-backend-984031420056.asia-south1.run.app'
 
 export default function ChatAgent({ showSidebar = true, useExternalInput = false }: { showSidebar?: boolean; useExternalInput?: boolean }) {
+  const { user } = useContext(AuthContext)
+  const engine = useRoomsEngine()
+  const rooms = engine?.rooms || []
+  
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<any[]>([])
   const [page, setPage] = useState<'home' | 'settings'>('home')
@@ -117,7 +123,7 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
       ? { text: cmd, actor_id: 'u_owner', tenant_id: 'hotel_default' }
       : { ...cmd, actor_id: 'u_owner', tenant_id: 'hotel_default' }
 
-    const res = await fetch(`${API_URL}/api/agent/message`, {
+    const res = await fetch(`${API_URL}/agent/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -128,6 +134,9 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
   }
 
   async function answerQuestion(q: string) {
+    const token = user ? await user.getIdToken() : ''
+    const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
+
     const text = q.toLowerCase()
 
     function formatINR(n: number) {
@@ -141,7 +150,7 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
     // Use Dashboard Stats API for common metrics
     if (text.includes('vacant') || text.includes('revenue') || text.includes('orders') || text.includes('pending')) {
       try {
-        const res = await fetch(`${API_URL}/api/dashboard/stats`)
+        const res = await fetch(`${API_URL}/dashboard/stats`, { headers })
         const stats = await res.json()
         
         if (text.includes('vacant')) {
@@ -163,7 +172,7 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
 
     // Inventory low items (stock <= min_stock)
     if (text.includes('inventory') && (text.includes('low') || text.includes('alert'))) {
-      const res = await fetch(`${API_URL}/api/inventory`)
+      const res = await fetch(`${API_URL}/inventory`, { headers })
       const json = await res.json()
       const items = json?.data || []
       const low = items.filter((i: any) => (i.stock || 0) <= (i.min_stock ?? 0))
@@ -342,7 +351,8 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
             </div>
           </div>
         </div>
-        <CheckInDrawer open={checkInOpen} onClose={() => setCheckInOpen(false)} />
+        <div className="h-0" /> {/* Spacer removal */}
+        <CheckInDrawer open={checkInOpen} onClose={() => setCheckInOpen(false)} rooms={rooms} />
         <AddInventoryDrawer open={inventoryOpen} onClose={() => setInventoryOpen(false)} onSave={submitAction} />
         <AddMenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} onSave={submitAction} />
         <CreateOrderDrawer open={orderOpen} onClose={() => setOrderOpen(false)} onSave={submitAction} />

@@ -16,7 +16,7 @@ export default function ReservationsPage() {
 
   const fetchReservations = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/reservations`)
+      const res = await fetch(`${API_URL}/bookings`)
       const data = await res.json()
       setReservations(Array.isArray(data) ? data : [])
     } catch (err) {

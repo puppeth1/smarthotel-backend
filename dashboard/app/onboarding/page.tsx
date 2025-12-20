@@ -22,7 +22,7 @@ export default function OnboardingPage() {
     setLoading(true)
     try {
       const token = user ? await user.getIdToken() : ''
-      const res = await fetch(`${API_URL}/api/hotels`, {
+      const res = await fetch(`${API_URL}/hotels`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

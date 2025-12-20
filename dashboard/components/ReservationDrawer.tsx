@@ -8,11 +8,12 @@ interface ReservationDrawerProps {
   reservation?: any
   onSave?: (data: any) => void
   selectedDate?: Date | null
+  initialRoom?: any
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://smarthotel-backend-984031420056.asia-south1.run.app'
 
-export default function ReservationDrawer({ open, onClose, reservation, onSave, selectedDate }: ReservationDrawerProps) {
+export default function ReservationDrawer({ open, onClose, reservation, onSave, selectedDate, initialRoom }: ReservationDrawerProps) {
   const { hotel } = useHotel()
   const [formData, setFormData] = useState<any>({
     guest_name: '',
@@ -33,7 +34,7 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
   // Load rooms to populate room number dropdown
   useEffect(() => {
     if (open) {
-      fetch(`${API_URL}/api/rooms`)
+      fetch(`${API_URL}/rooms`)
         .then(res => res.json())
         .then(data => setRooms(data.data || []))
         .catch(console.error)
@@ -65,16 +66,16 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
           email: '',
           check_in: checkIn,
           check_out: checkOut,
-          room_type: hotel?.settings?.roomTypes?.[0]?.type || '',
-          room_number: '',
+          room_type: initialRoom?.type || hotel?.settings?.roomTypes?.[0]?.type || '',
+          room_number: initialRoom?.room_number || '',
           source: 'WALK_IN',
-          price_per_night: hotel?.settings?.roomTypes?.[0]?.basePrice || 0,
+          price_per_night: initialRoom?.price_per_night || initialRoom?.base_price || hotel?.settings?.roomTypes?.[0]?.basePrice || 0,
           status: 'CONFIRMED',
           notes: ''
         })
       }
     }
-  }, [open, reservation, selectedDate, hotel])
+  }, [open, reservation, selectedDate, hotel, initialRoom])
 
   // Auto-update price when room type changes
   const handleRoomTypeChange = (type: string) => {
@@ -82,7 +83,7 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
     setFormData((prev: any) => ({
       ...prev,
       room_type: type,
-      price_per_night: config?.basePrice ?? prev.price_per_night,
+      price_per_night: config?.basePrice || prev.price_per_night,
       room_number: '' // Reset room number as type changed
     }))
   }
@@ -111,8 +112,8 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
       }
 
       const url = reservation 
-        ? `${API_URL}/api/reservations/${reservation.id}`
-        : `${API_URL}/api/reservations`
+        ? `${API_URL}/bookings/${reservation.id}`
+        : `${API_URL}/bookings`
       
       const method = reservation ? 'PATCH' : 'POST'
 
@@ -143,7 +144,7 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
 
     setLoading(true)
     try {
-        const res = await fetch(`${API_URL}/api/reservations/${reservation.id}/checkin`, {
+        const res = await fetch(`${API_URL}/bookings/${reservation.id}/checkin`, {
             method: 'POST'
         })
         if (!res.ok) throw new Error('Check-in failed')

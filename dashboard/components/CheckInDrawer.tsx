@@ -1,12 +1,16 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useContext } from 'react'
 import { useHotel } from '@/components/HotelProvider'
+import { AuthContext } from '@/components/AuthProvider'
+import { Room } from '@/lib/rooms-engine'
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   'https://smarthotel-backend-984031420056.asia-south1.run.app'
 
-export default function CheckInDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function CheckInDrawer({ open, onClose, rooms }: { open: boolean; onClose: () => void; rooms: Room[] }) {
   const { hotel } = useHotel()
+  const { user } = useContext(AuthContext)
   const currency = hotel?.settings?.currency
   const activeRoomTypes = useMemo(() => {
     return (hotel?.settings?.roomTypes || []).filter((rt: any) => rt.active !== false)
@@ -19,14 +23,25 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
   const [roomType, setRoomType] = useState(activeRoomTypes[0]?.type || '')
   const [existingRooms, setExistingRooms] = useState<any[]>([])
 
-  useEffect(() => {
-    if (open) {
-      fetch(`${API_URL}/api/rooms`)
-        .then((res) => res.json())
-        .then((data) => setExistingRooms(data.data || []))
-        .catch(() => setExistingRooms([]))
-    }
-  }, [open])
+  const [checkIn, setCheckIn] = useState(() => {
+    const d = new Date()
+    const offset = d.getTimezoneOffset()
+    const local = new Date(d.getTime() - (offset * 60 * 1000))
+    return local.toISOString().split('T')[0]
+  })
+  const [checkOut, setCheckOut] = useState(() => {
+    const d = new Date(Date.now() + 86400000)
+    const offset = d.getTimezoneOffset()
+    const local = new Date(d.getTime() - (offset * 60 * 1000))
+    return local.toISOString().split('T')[0]
+  })
+
+  const nights = useMemo(() => {
+    const start = new Date(checkIn)
+    const end = new Date(checkOut)
+    const diff = end.getTime() - start.getTime()
+    return Math.max(1, Math.ceil(diff / (1000 * 3600 * 24)))
+  }, [checkIn, checkOut])
 
   const availableRoomNumbers = useMemo(() => {
     const selected = activeRoomTypes.find((rt: any) => rt.type === roomType)
@@ -40,11 +55,15 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
     }
 
     return allNumbers.filter((num) => {
-      const room = existingRooms.find((r: any) => String(r.room_number) === num)
-      // Available if room doesn't exist (will be created) or exists and is AVAILABLE
-      return !room || room.status === 'AVAILABLE'
+      const room = rooms.find((r) => String(r.room_number).trim() === String(num).trim())
+      // STRICT RULE: Available ONLY if room doesn't exist (will be created) OR exists and is VACANT/AVAILABLE
+      // If room is OCCUPIED, MAINTENANCE, or anything else, it is NOT available.
+      if (!room) return true
+      
+      const status = (room.computed_status || room.status || 'AVAILABLE').toUpperCase()
+      return status === 'VACANT' || status === 'AVAILABLE'
     })
-  }, [roomType, activeRoomTypes, existingRooms])
+  }, [roomType, activeRoomTypes, rooms])
 
   // Reset roomNumber when availableRoomNumbers changes
   useEffect(() => {
@@ -81,7 +100,73 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
   }, [roomType, activeRoomTypes])
   const [showPayment, setShowPayment] = useState(false)
   const [payMethod, setPayMethod] = useState<'UPI' | 'CASH' | 'CARD'>('UPI')
+  const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Partial' | 'Pending'>('Paid')
   const [payAmount, setPayAmount] = useState('5000')
+  
+  useEffect(() => {
+    if (price && nights) {
+      const total = String(Number(price) * nights)
+      setPayAmount(total)
+    }
+  }, [price, nights])
+
+  // Update amount based on status
+  useEffect(() => {
+    if (paymentStatus === 'Pending') {
+      setPayAmount('0')
+    } else if (paymentStatus === 'Paid') {
+      setPayAmount(String(Number(price) * nights))
+    }
+  }, [paymentStatus, price, nights])
+
+  const [showInvoiceOptions, setShowInvoiceOptions] = useState(false)
+
+  const handlePrintInvoice = () => {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return alert('Please allow popups to print invoice')
+    
+    const html = `
+      <html>
+        <head>
+          <title>Invoice - ${roomNumber}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 40px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+            .h-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+            .total { font-size: 18px; font-weight: bold; border-top: 2px solid #000; padding-top: 10px; margin-top: 20px; }
+            .status { text-align: right; font-weight: bold; color: green; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="h-name">${hotel?.name || 'Smart Hotel'}</div>
+            <div>Invoice #${Date.now().toString().slice(-6)}</div>
+          </div>
+          <div class="row"><strong>Guest:</strong> <span>${primaryGuestName}</span></div>
+          <div class="row"><strong>Room:</strong> <span>${roomNumber} (${roomType})</span></div>
+          <div class="row"><strong>Check In:</strong> <span>${checkIn}</span></div>
+          <div class="row"><strong>Check Out:</strong> <span>${checkOut}</span></div>
+          <div class="row"><strong>Nights:</strong> <span>${nights}</span></div>
+          <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;" />
+          <div class="row"><span>Room Charges</span> <span>₹${Number(price) * nights}</span></div>
+          <div class="row total"><span>Total Amount</span> <span>₹${payAmount}</span></div>
+          <div class="status">PAID via ${payMethod}</div>
+          
+          <script>window.print();</script>
+        </body>
+      </html>
+    `
+    printWindow.document.write(html)
+    printWindow.document.close()
+  }
+
+  const handleWhatsAppShare = () => {
+    if (!primaryGuestPhone) return alert('Please enter guest phone number')
+    const text = `Dear ${primaryGuestName}, here is your invoice for Room ${roomNumber}. Total Paid: ₹${payAmount}. Thank you for staying with us!`
+    window.open(`https://wa.me/${primaryGuestPhone}?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
   const [generateInvoice, setGenerateInvoice] = useState(true)
   const [showIdPanel, setShowIdPanel] = useState(false)
   const [idGuest, setIdGuest] = useState<'Primary Guest' | string>('Primary Guest')
@@ -100,41 +185,84 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
 
   async function ensureRoom() {
     try {
-      const res = await fetch(`${API_URL}/api/rooms`)
+      const token = await user?.getIdToken()
+      const headers: any = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      const selected = activeRoomTypes.find((rt: any) => rt.type === roomType)
+      
+      const res = await fetch(`${API_URL}/rooms?_t=${Date.now()}`, { headers })
       const json = await res.json()
       const rooms = json?.data || []
-      const exists = rooms.some((r: any) => String(r.room_number) === String(roomNumber))
+      const exists = rooms.some((r: any) => String(r.room_number) === String(roomNumber).trim())
       if (!exists) {
-        await fetch(`${API_URL}/api/agent/message`, {
+        console.log('Room does not exist, creating via API:', roomNumber)
+        // Direct API call instead of agent message
+        const createRes = await fetch(`${API_URL}/rooms`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: `Add room ${roomNumber} as ${roomType} price ${price}`, actor_id: 'u_owner', tenant_id: 'hotel_default' }),
+          headers,
+          body: JSON.stringify({
+            room_number: roomNumber.trim(),
+            type: roomType,
+            price_per_night: Number(price),
+            capacity: Number(selected?.maxGuests || 2),
+            currency: currency?.code || 'INR'
+          })
         })
+        
+        if (!createRes.ok) {
+           const err = await createRes.json()
+           throw new Error(err.message || 'Failed to create room')
+        }
+      } else {
+        // Double check availability (redundant but safe)
+        const room = rooms.find((r: any) => String(r.room_number) === String(roomNumber).trim())
+        if (room && (room.status === 'OCCUPIED' || room.computed_status === 'OCCUPIED')) {
+             throw new Error('Room is already occupied')
+        }
       }
-    } catch {}
+    } catch (e: any) {
+      console.error('Error ensuring room:', e)
+      alert(e.message || 'Error preparing room')
+      throw e // Propagate error to stop check-in
+    }
   }
 
   async function markOccupied() {
-    try {
-      await fetch(`${API_URL}/api/agent/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: `Mark room ${roomNumber} as occupied`, actor_id: 'u_owner', tenant_id: 'hotel_default' }),
-      })
-    } catch {}
+    // Deprecated: Reservation creation automatically handles occupancy status logic in backend/frontend
   }
 
   async function savePayment() {
     try {
-      const payment = { amount: Number(payAmount || price), method: payMethod, created_at: Date.now(), room_number: roomNumber }
-      const saved = localStorage.getItem('hp_payments')
-      const arr = saved ? JSON.parse(saved) : []
-      localStorage.setItem('hp_payments', JSON.stringify([payment, ...arr]))
+      const totalToPay = Number(price) * nights
+      const paidAmt = Number(payAmount)
+
+      if (paidAmt > 0) {
+        const payment = { amount: paidAmt, method: payMethod, created_at: Date.now(), room_number: roomNumber }
+        const saved = localStorage.getItem('hp_payments')
+        const arr = saved ? JSON.parse(saved) : []
+        localStorage.setItem('hp_payments', JSON.stringify([payment, ...arr]))
+      }
+
       if (generateInvoice) {
         const invSaved = localStorage.getItem('hp_invoices')
         const invArr = invSaved ? JSON.parse(invSaved) : []
         const nextId = `inv_${(invArr?.length || 0) + 1}`
-        const invoice = { invoice_id: nextId, room_number: roomNumber, amount: Number(payAmount || price), currency: currency?.code || 'INR', status: 'PAID', payment_method: payMethod, paid_at: Date.now(), created_at: Date.now() }
+        
+        let status = 'PAID'
+        if (paymentStatus === 'Pending') status = 'PENDING'
+        else if (paymentStatus === 'Partial') status = 'PARTIAL'
+
+        const invoice = { 
+            invoice_id: nextId, 
+            room_number: roomNumber, 
+            amount: totalToPay, 
+            currency: currency?.code || 'INR', 
+            status: status, 
+            payment_method: payMethod, 
+            paid_at: paidAmt > 0 ? Date.now() : undefined, 
+            created_at: Date.now() 
+        }
         localStorage.setItem('hp_invoices', JSON.stringify([invoice, ...invArr]))
       }
     } catch {}
@@ -148,10 +276,76 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
       .join(' ')
   }
 
-  async function handleSave() {
-    await ensureRoom()
-    await markOccupied()
+  async function createReservation() {
     try {
+      const idDetails = showIdPanel && idLabel ? `${idType}: ${idLabel}` : ''
+      const notes = [
+        'Created via Quick Check-in',
+        idDetails ? `ID: ${idDetails}` : null,
+        additionalGuests.length > 0 ? `Additional Guests: ${additionalGuests.map(g => g.name).join(', ')}` : null
+      ].filter(Boolean).join('. ')
+
+      let apiPaymentStatus = 'not_paid'
+      if (showPayment) {
+        if (paymentStatus === 'Paid') apiPaymentStatus = 'paid'
+        else if (paymentStatus === 'Partial') apiPaymentStatus = 'partial'
+        else if (paymentStatus === 'Pending') apiPaymentStatus = 'not_paid'
+      }
+
+      const payload = {
+        roomId: roomNumber.trim(),
+        roomType: roomType,
+        guestName: toTitleCase(primaryGuestName.trim()),
+        phone: primaryGuestPhone.trim(),
+        checkIn: checkIn,
+        checkOut: checkOut,
+        pricePerNight: Number(price),
+        paymentStatus: apiPaymentStatus,
+        
+        // Additional fields to preserve data
+        nights: nights,
+        guestCount: 1 + additionalGuests.length,
+        notes: notes,
+        source: 'WALK_IN',
+        status: 'CHECKED_IN',
+        totalPrice: Number(price) * nights
+      }
+
+      console.log('Creating reservation with payload:', payload)
+
+      const token = await user?.getIdToken()
+      const headers: any = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      const res = await fetch(`${API_URL}/bookings`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error('Failed to create reservation via API:', res.status, errText)
+        throw new Error('Failed to create reservation: ' + errText)
+      } else {
+         console.log('Reservation created successfully. Dispatching refresh...')
+         // Dispatch event to refresh dashboard/rooms
+         window.dispatchEvent(new Event('hp_refresh_stats'))
+      }
+    } catch (e: any) {
+      console.error('Error creating reservation:', e)
+      throw e
+    }
+  }
+
+  async function handleSave() {
+    try {
+      await ensureRoom()
+      // Create actual reservation in backend to sync with Rooms/Dashboard
+      await createReservation()
+      
+      // await markOccupied() // No longer needed
+      try {
       const guestsSaved = localStorage.getItem('hp_guests')
       const guestArr = guestsSaved ? JSON.parse(guestsSaved) : []
       const primaryGuest = { id: crypto.randomUUID(), name: toTitleCase(primaryGuestName.trim()), phone: primaryGuestPhone.trim(), role: 'PRIMARY' }
@@ -164,7 +358,8 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
       let invoice_id: string | undefined
       if (generateInvoice && !showPayment) {
         const nextId = `inv_${(invArr?.length || 0) + 1}`
-        const invoice = { invoice_id: nextId, room_number: roomNumber, amount: Number(price || 0), currency: currency?.code || 'INR', status: 'UNPAID', created_at: Date.now() }
+        const total = Number(price || 0) * nights
+        const invoice = { invoice_id: nextId, room_number: roomNumber, amount: total, currency: currency?.code || 'INR', status: 'UNPAID', created_at: Date.now() }
         localStorage.setItem('hp_invoices', JSON.stringify([invoice, ...invArr]))
         invoice_id = nextId
       }
@@ -177,7 +372,7 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
         additional_guest_ids: others.map((g) => g.id),
         checkin_time: Date.now(),
         payment_method: showPayment ? payMethod : undefined,
-        payment_amount: showPayment ? Number(payAmount || price) : undefined,
+        payment_amount: showPayment ? Number(payAmount || (Number(price) * nights)) : undefined,
         guest_ids: guestIds,
         invoice_id,
       }
@@ -187,7 +382,15 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
 
       if (showPayment) await savePayment()
     } catch {}
+    
+    // Trigger global refresh for RoomsPage / Dashboard
+    window.dispatchEvent(new Event('hp_refresh_stats'))
+    
     onClose()
+    } catch (e: any) {
+      console.error(e)
+      alert(e.message || 'Check-in failed')
+    }
   }
 
   if (!open) return null
@@ -281,7 +484,34 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
 
           <hr className="border-gray-100" />
 
-          {/* Section 2: Room Details */}
+          {/* Section 2: Stay Details */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-gray-900 tracking-wider">Stay Details</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Check In</label>
+                <input 
+                  type="date"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all" 
+                  value={checkIn} 
+                  onChange={(e) => setCheckIn(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Check Out</label>
+                <input 
+                  type="date"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all" 
+                  value={checkOut} 
+                  onChange={(e) => setCheckOut(e.target.value)} 
+                />
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+
+          {/* Section 3: Room Details */}
           <div className="space-y-4">
             <h4 className="text-sm font-semibold text-gray-900 tracking-wider">Room Details</h4>
             
@@ -492,6 +722,25 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
             
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
+                <div className="flex gap-2">
+                  {['Paid', 'Partial', 'Pending'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setPaymentStatus(status as any)}
+                      className={`flex-1 py-2 text-sm rounded-lg border transition-all ${
+                        paymentStatus === status
+                          ? 'bg-black text-white border-black shadow-sm'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                 <select 
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all" 
@@ -514,15 +763,39 @@ export default function CheckInDrawer({ open, onClose }: { open: boolean; onClos
                 />
               </div>
 
-              <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                <input 
-                  type="checkbox" 
-                  className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
-                  checked={generateInvoice} 
-                  onChange={(e) => setGenerateInvoice(e.target.checked)} 
-                />
-                <span className="text-sm font-medium text-gray-700">Generate Invoice</span>
-              </label>
+              <div className="space-y-3">
+                <button
+                  disabled={paymentStatus !== 'Paid'}
+                  onClick={() => setShowInvoiceOptions(true)}
+                  className={`w-full py-2.5 rounded-lg border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    paymentStatus === 'Paid'
+                      ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm'
+                      : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-lg">📄</span> Generate Invoice
+                </button>
+
+                {showInvoiceOptions && (
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
+                     <div className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider">Invoice Options</div>
+                     <div className="grid grid-cols-2 gap-2">
+                       <button 
+                         onClick={handlePrintInvoice}
+                         className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
+                       >
+                         <span>🖨️</span> Print / PDF
+                       </button>
+                       <button 
+                         onClick={handleWhatsAppShare}
+                         className="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#25D366] text-white rounded-md text-sm hover:brightness-95 transition-all shadow-sm"
+                       >
+                         <span>💬</span> WhatsApp
+                       </button>
+                     </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-6 border-t border-gray-100 bg-gray-50">

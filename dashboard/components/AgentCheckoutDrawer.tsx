@@ -15,7 +15,7 @@ export default function AgentCheckoutDrawer({ open, onClose, onSave }: { open: b
   useEffect(() => {
     if (open) {
       setLoading(true)
-      fetch(`${API_URL}/api/rooms`)
+      fetch(`${API_URL}/rooms`)
         .then((res) => res.json())
         .then((data) => {
           const rooms = (data.data || []).filter((r: any) => r.status === 'OCCUPIED')

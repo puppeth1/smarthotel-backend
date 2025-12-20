@@ -67,7 +67,7 @@ export default function HomePage() {
     let mounted = true
     async function load() {
       try {
-        const cfgRes = await fetch(`${API_URL}/api/dashboard/config`)
+        const cfgRes = await fetch(`${API_URL}/dashboard/config`)
         const cfgJson = await cfgRes.json()
         const cards: DashboardCardKey[] = (cfgJson?.cards || []) as DashboardCardKey[]
         if (mounted && cards.length) setSelectedCards(cards)
@@ -94,7 +94,7 @@ export default function HomePage() {
     } catch {}
     setSaving(true)
     try {
-      await fetch(`${API_URL}/api/dashboard/config`, {
+      await fetch(`${API_URL}/dashboard/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cards: cards.slice(0, 8) }),
@@ -107,7 +107,7 @@ export default function HomePage() {
 
   return (
     <div className="h-screen overflow-hidden bg-white flex">
-      <aside className="w-64 bg-[#F7F8FA] border-r border-[#E5E7EB] p-4">
+      <aside className="w-64 bg-accentSecondary/10 border-r border-[#E5E7EB] p-4">
         <div className="">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-[#111827]">Tasks</span>
@@ -150,7 +150,7 @@ export default function HomePage() {
             ]).map((t) => (
               <li
                 key={t.id}
-                className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${t.id?.startsWith('seed-') ? 'bg-[#F9FAFB]' : 'bg-white'} border border-[#E5E7EB]`}
+                className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${t.id?.startsWith('seed-') ? 'bg-white/50' : 'bg-white'} border border-[#E5E7EB]`}
               >
                 <input
                   type="checkbox"
@@ -196,10 +196,13 @@ export default function HomePage() {
           </div>
         )}
 
-        {loadingSummary || loading ? (
+        {loadingSummary && !metrics ? (
           <div className="p-3">Loading dashboard…</div>
         ) : (
-          <DashboardCardsGrid cards={selectedCards} metrics={metrics} />
+          <DashboardCardsGrid
+            cards={selectedCards.length ? selectedCards : ['TOTAL_ROOMS', 'OCCUPIED_ROOMS', 'VACANT_ROOMS', 'TODAY_CHECKINS', 'TODAY_CHECKOUTS', 'TODAY_REVENUE', 'MONTHLY_REVENUE', 'PENDING_PAYMENTS']}
+            metrics={metrics}
+          />
         )}
 
         {customizeOpen && (

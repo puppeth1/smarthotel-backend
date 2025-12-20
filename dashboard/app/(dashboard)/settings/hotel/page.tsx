@@ -26,7 +26,7 @@ export default function HotelSettingsPage() {
     let mounted = true
     async function load() {
       try {
-        const res = await fetch(`${API_URL}/api/settings/hotel-info`)
+        const res = await fetch(`${API_URL}/settings/hotel-info`)
         const json = await res.json()
         const info = json?.data || {}
         if (!mounted) return

@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useContext } from 'react'
 import { useHotel } from './HotelProvider'
+import { AuthContext } from '@/components/AuthProvider'
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -10,6 +11,7 @@ type OrderType = 'ROOM' | 'TABLE' | 'WALKIN'
 
 export default function CreateOrderDrawer({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (cmd: any) => void }) {
   const { hotel } = useHotel()
+  const { user } = useContext(AuthContext)
   
   // State
   const [orderType, setOrderType] = useState<OrderType>('ROOM')
@@ -33,27 +35,31 @@ export default function CreateOrderDrawer({ open, onClose, onSave }: { open: boo
       setLoading(true)
       
       // Fetch Occupied Rooms
-      fetch(`${API_URL}/api/rooms`)
-        .then((res) => res.json())
-        .then((data) => {
-          const rooms = (data.data || []).filter((r: any) => r.status === 'OCCUPIED')
-          setOccupiedRooms(rooms)
-          if (rooms.length > 0 && !roomNumber) {
-            setRoomNumber(rooms[0].room_number)
-          }
-        })
-        .catch(console.error)
+      user?.getIdToken().then((token: string) => {
+        const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
+        
+        fetch(`${API_URL}/rooms`, { headers })
+          .then((res) => res.json())
+          .then((data) => {
+            const rooms = (data.data || []).filter((r: any) => r.status === 'OCCUPIED')
+            setOccupiedRooms(rooms)
+            if (rooms.length > 0 && !roomNumber) {
+              setRoomNumber(rooms[0].room_number)
+            }
+          })
+          .catch(console.error)
 
-      // Fetch Menu
-      fetch(`${API_URL}/api/menu`)
-        .then((res) => res.json())
-        .then((data) => {
-            // Filter only available items
-            const available = (data.data || []).filter((m: any) => m.availability !== 'Unavailable')
-            setMenuItems(available)
-        })
-        .catch(console.error)
-        .finally(() => setLoading(false))
+        // Fetch Menu
+        fetch(`${API_URL}/menu`, { headers })
+          .then((res) => res.json())
+          .then((data) => {
+              // Filter only available items
+              const available = (data.data || []).filter((m: any) => m.availability !== 'Unavailable')
+              setMenuItems(available)
+          })
+          .catch(console.error)
+          .finally(() => setLoading(false))
+      })
     }
   }, [open])
 

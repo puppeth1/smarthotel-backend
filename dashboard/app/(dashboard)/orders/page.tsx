@@ -10,7 +10,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API_URL}/api/orders`)
+    fetch(`${API_URL}/orders`)
       .then((res) => res.json())
       .then((data) => {
         setOrders(data.data || [])

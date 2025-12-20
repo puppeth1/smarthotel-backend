@@ -40,7 +40,7 @@ export default function WhatsAppSettingsPage() {
     // Load connection state
     if (!user) return
     user.getIdToken().then((token: string) => {
-      fetch(`${API_URL}/api/integrations/whatsapp/account`, {
+      fetch(`${API_URL}/integrations/whatsapp/account`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -72,7 +72,7 @@ export default function WhatsAppSettingsPage() {
       return
     }
     const token = user ? await user.getIdToken() : ''
-    const res = await fetch(`${API_URL}/api/integrations/whatsapp/connect`, {
+    const res = await fetch(`${API_URL}/integrations/whatsapp/connect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ phone_number: displayNumber })

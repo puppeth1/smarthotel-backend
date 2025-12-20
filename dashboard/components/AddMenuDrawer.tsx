@@ -1,9 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useContext } from 'react'
+import { AuthContext } from '@/components/AuthProvider'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://smarthotel-backend-984031420056.asia-south1.run.app'
 
 export default function AddMenuDrawer({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (cmd: string) => void }) {
+  const { user } = useContext(AuthContext)
   // Basic Info
   const [menuName, setMenuName] = useState('')
   const [menuPrice, setMenuPrice] = useState('')
@@ -21,14 +23,17 @@ export default function AddMenuDrawer({ open, onClose, onSave }: { open: boolean
   // Fetch Inventory
   useEffect(() => {
     if (open) {
-      fetch(`${API_URL}/api/inventory`)
-        .then(res => res.json())
-        .then(data => {
-          setInventoryItems(data.data || [])
-        })
-        .catch(err => console.error('Failed to fetch inventory', err))
+      user?.getIdToken().then(token => {
+        const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
+        fetch(`${API_URL}/inventory`, { headers })
+          .then(res => res.json())
+          .then(data => {
+            setInventoryItems(data.data || [])
+          })
+          .catch(err => console.error('Failed to fetch inventory', err))
+      })
     }
-  }, [open])
+  }, [open, user])
 
   // Calculations
   const dishCost = ingredients.reduce((sum, ing) => {

@@ -10,7 +10,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API_URL}/api/inventory`)
+    fetch(`${API_URL}/inventory`)
       .then((res) => res.json())
       .then((data) => {
         setItems(data.data || [])

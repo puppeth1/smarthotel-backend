@@ -2,9 +2,9 @@
 import { useEffect, useState } from 'react'
 import { useHotel } from '@/components/HotelProvider'
 import { formatMoney } from '@/lib/formatMoney'
-import { formatDate, formatDateTime } from '@/lib/utils'
+import { format } from 'date-fns'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://smarthotel-backend-984031420056.asia-south1.run.app'
 
 enum InvoiceStatus {
   DRAFT = 'DRAFT',
@@ -58,7 +58,7 @@ export default function BillingPage() {
   }, [])
 
   function fetchInvoices() {
-    fetch(`${API_URL}/api/billing/invoices`)
+    fetch(`${API_URL}/billing/invoices`)
       .then((res) => res.json())
       .then((data) => {
         setInvoices(data.data || [])
@@ -85,7 +85,7 @@ export default function BillingPage() {
     if (!selectedInvoice) return
 
     try {
-      const res = await fetch(`${API_URL}/api/billing/invoices/${selectedInvoice.invoice_id}/payments`, {
+      const res = await fetch(`${API_URL}/billing/invoices/${selectedInvoice.invoice_id}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,10 +115,10 @@ export default function BillingPage() {
       if(!confirm) return;
 
       try {
-          const res = await fetch(`${API_URL}/api/whatsapp/send`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
+                const res = await fetch(`${API_URL}/whatsapp/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                   hotelId: 'hotel_default', // Hardcoded for now, should come from context
                   type: 'invoice',
                   payload: {
@@ -183,7 +183,7 @@ export default function BillingPage() {
                   <tr key={inv.invoice_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-mono font-medium text-gray-900">{inv.invoice_id}</td>
                     <td className="px-6 py-4 text-gray-500">
-                        {formatDate(inv.created_at)}
+                        {format(new Date(inv.created_at), 'MMM d, yyyy')}
                     </td>
                     <td className="px-6 py-4 text-gray-900 font-medium">{inv.room_number}</td>
                     <td className="px-6 py-4 text-right font-medium">{formatMoney(inv.amount, currency?.code || 'INR', currency?.locale || 'en-IN')}</td>
