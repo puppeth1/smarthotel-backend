@@ -266,7 +266,7 @@ export default function BillingPage() {
                                 <div>
                                     <div className="font-medium text-gray-900">{formatMoney(pay.amount, currency?.code || 'INR', currency?.locale || 'en-IN')}</div>
                                     <div className="text-xs text-gray-500 mt-0.5">
-                                        {formatDateTime(pay.date)} • {pay.method}
+                                        {format(new Date(pay.date), 'MMM d, yyyy HH:mm')} • {pay.method}
                                     </div>
                                     {pay.referenceId && (
                                         <div className="text-xs text-gray-400 mt-0.5">Ref: {pay.referenceId}</div>

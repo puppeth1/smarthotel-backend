@@ -23,7 +23,7 @@ export default function AddMenuDrawer({ open, onClose, onSave }: { open: boolean
   // Fetch Inventory
   useEffect(() => {
     if (open) {
-      user?.getIdToken().then(token => {
+      user?.getIdToken().then((token: string) => {
         const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
         fetch(`${API_URL}/inventory`, { headers })
           .then(res => res.json())
