@@ -1,10 +1,18 @@
+const path = require('path')
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
   images: {
-    unoptimized: true
-  }
+    unoptimized: true,
+  },
+  outputFileTracingRoot: path.join(__dirname),
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@': path.resolve(__dirname),
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig
-

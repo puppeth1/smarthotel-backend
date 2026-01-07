@@ -9,7 +9,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3001',
-      'https://smarthotel.hypepuppet.com'
+      'https://smarthotel.highpuppet.com'
     ],
     credentials: true
   })
