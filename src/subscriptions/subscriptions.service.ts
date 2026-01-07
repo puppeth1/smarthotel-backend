@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import * as admin from 'firebase-admin'
 import crypto from 'crypto'
-import type { Subscription, SubscriptionStatus, PlanType } from './subscription.types'
+import { Subscription, SubscriptionStatus, PlanType } from './subscription.types'
 
 @Injectable()
 export class SubscriptionsService {
