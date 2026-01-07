@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as PDFDocument from 'pdfkit';
+const PDFDocument = require('pdfkit');
 
 @Injectable()
 export class PdfService {
@@ -11,9 +11,9 @@ export class PdfService {
         const doc = new PDFDocument({ margin: 50 });
         const buffers: Buffer[] = [];
 
-        doc.on('data', (buffer) => buffers.push(buffer));
+        doc.on('data', (buffer: Buffer) => buffers.push(buffer));
         doc.on('end', () => resolve(Buffer.concat(buffers)));
-        doc.on('error', (err) => reject(err));
+        doc.on('error', (err: Error) => reject(err));
 
         // Header
         doc.fontSize(20).text(data.hotel?.name || 'Smart Hotel', { align: 'center' });
