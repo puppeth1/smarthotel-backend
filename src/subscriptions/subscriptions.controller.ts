@@ -37,15 +37,3 @@ export class SubscriptionsController {
   }
 }
 
-@Controller('subscription')
-export class SubscriptionControllerAlias {
-  constructor(private readonly subs: SubscriptionsService) {}
-
-  @UseGuards(FirebaseAuthGuard)
-  @Post('create')
-  createAlias(@Req() req: Request, @Body() body: any) {
-    const uid = (req as any).user?.id as string | undefined
-    const plan: 'monthly' | 'quarterly' | 'yearly' = body?.plan_type || 'monthly'
-    return this.subs.createSubscription(uid || '', (req as any).user?.email, plan)
-  }
-}

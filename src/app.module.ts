@@ -13,6 +13,7 @@ import { IntegrationsModule } from './integrations/integrations.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { ReservationsModule } from './reservations/reservations.module'
+import { SubscriptionsModule } from './subscriptions/subscriptions.module'
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ReservationsModule } from './reservations/reservations.module'
     AuthModule,
     UsersModule,
     ReservationsModule,
-  ],
+    SubscriptionsModule,
+      ],
 })
 export class AppModule {}

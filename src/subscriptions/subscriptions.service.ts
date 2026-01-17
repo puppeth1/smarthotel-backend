@@ -45,7 +45,7 @@ export class SubscriptionsService {
   }
 
   verifyWebhookSignature(payload: string, signature: string): boolean {
-    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || ''
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || 'smarthotel_webhook_prod_2026'
     const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex')
     return expected === signature
   }
@@ -134,8 +134,8 @@ export class SubscriptionsService {
       yearly: process.env.RAZORPAY_PLAN_YEARLY || 'plan_S0c6UPjrKTCFXA',
     }
 
-    const keyId = process.env.RAZORPAY_KEY_ID || ''
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || ''
+    const keyId = process.env.RAZORPAY_KEY_ID || 'rzp_live_S4DNXXPde92qNa'
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'UT0U4CeV52t3fPUye007kbgZ'
     const base = 'https://api.razorpay.com/v1'
     const auth = 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64')
 

@@ -4,8 +4,8 @@ import { CheckCircleIcon } from "@heroicons/react/24/solid"
 import BrandLogo from "../../components/BrandLogo"
 import { useSearchParams } from "next/navigation"
 import { AuthContext } from "@/components/AuthProvider"
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
+const API_URL = process.env.NEXT_PUBLIC_API_URL!
+const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_S4DNXXPde92qNa'
 
 declare global {
   interface Window {
@@ -21,12 +21,13 @@ export default function SubscriptionPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const handleSubscribe = async (plan: 'monthly' | 'quarterly' | 'yearly') => {
+      console.log('USER FROM AUTH CONTEXT:', user)
     setSubmitting(true)
     setError(null)
     setSuccess(null)
     try {
       const token = user ? await user.getIdToken() : ''
-      const res = await fetch(`${API_URL}/subscription/create`, {
+      const res = await fetch('/api/subscriptions/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ plan_type: plan }),
