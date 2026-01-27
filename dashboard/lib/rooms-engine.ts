@@ -75,14 +75,12 @@ export function useRoomsEngine() {
     
     setError(null)
     try {
-      const token = await user?.getIdToken()
       const headers: any = {}
-      if (token) headers['Authorization'] = `Bearer ${token}`
-
+      
       const t = Date.now()
       const [roomsRes, bookingsRes] = await Promise.all([
-        fetch(`${API_URL}/rooms?_t=${t}&limit=1000`, { headers }),
-        fetch(`${API_URL}/bookings?_t=${t}&limit=1000`, { headers }) // Fetching large page to ensure we catch recent bookings
+        fetch(`/api/rooms?_t=${t}&limit=1000`, { headers }),
+        fetch(`/api/bookings?_t=${t}&limit=1000`, { headers }) // Fetching large page to ensure we catch recent bookings
       ])
 
       const roomsData = await roomsRes.json()
@@ -102,7 +100,7 @@ export function useRoomsEngine() {
     } finally {
       setLoading(false)
     }
-  }, [initialized, user])
+  }, [initialized])
 
   // Initial Fetch & Event Listener
   useEffect(() => {
@@ -136,6 +134,7 @@ export function useRoomsEngine() {
       const activeBooking = bookings.find(b => {
         if (b.status === 'CANCELLED' || b.status === 'CHECKED_OUT') return false
         // Loose comparison for room numbers to handle string/number mismatches
+        // console.log(`Comparing Room: "${room.room_number}" with Booking Room: "${b.room_number}"`)
         if (String(b.room_number).trim() !== String(room.room_number).trim()) return false
 
         const start = new Date(b.check_in)
@@ -150,7 +149,9 @@ export function useRoomsEngine() {
         const s = new Date(start.toISOString().split('T')[0])
         const e = new Date(end.toISOString().split('T')[0])
         
-        return t >= s && t < e
+        const isOverlap = t >= s && t < e
+        if (isOverlap) console.log(`Found Active Booking for Room ${room.room_number}:`, b)
+        return isOverlap
       })
 
       // B. Determine Computed Status
@@ -204,7 +205,7 @@ export function useRoomsEngine() {
       if (token) headers['Authorization'] = `Bearer ${token}`
 
       // Assuming generic update endpoint
-      const res = await fetch(`${API_URL}/rooms/${room.id}`, {
+      const res = await fetch(`/api/rooms/${room.id}`, {
         method: 'PUT', // or PATCH
         headers,
         body: JSON.stringify({ status: newStatus })
@@ -227,7 +228,7 @@ export function useRoomsEngine() {
         const headers: any = {}
         if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch(`${API_URL}/rooms/${room.id}`, {
+        const res = await fetch(`${API_URL}$_URL}/rooms/${room.id}`, {
             method: 'DELETE',
             headers
         })
@@ -251,7 +252,7 @@ export function useRoomsEngine() {
         const headers: any = { 'Content-Type': 'application/json' }
         if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch(`${API_URL}/rooms/${room.id}`, {
+        const res = await fetch(`/api/rooms/${room.id}`, {
             method: 'PUT',
             headers,
             body: JSON.stringify(updates)
@@ -277,7 +278,7 @@ export function useRoomsEngine() {
         const headers: any = { 'Content-Type': 'application/json' }
         if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch(`${API_URL}/rooms`, {
+        const res = await fetch(`/api/rooms`, {
             method: 'POST',
             headers,
             body: JSON.stringify(room)
@@ -304,7 +305,7 @@ export function useRoomsEngine() {
         const headers: any = { 'Content-Type': 'application/json' }
         if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch(`${API_URL}/bookings/${booking.id}`, {
+        const res = await fetch(`/api/bookings/${booking.id}`, {
             method: 'PUT',
             headers,
             body: JSON.stringify(updates)
@@ -330,7 +331,7 @@ export function useRoomsEngine() {
         const headers: any = { 'Content-Type': 'application/json' }
         if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch(`${API_URL}/bookings`, {
+        const res = await fetch(`/api/bookings`, {
             method: 'POST',
             headers,
             body: JSON.stringify(booking)

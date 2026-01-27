@@ -14,7 +14,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   ]
   return (
     <div className="h-full flex">
-      <aside className="w-64 border-r border-borderLight bg-bgSoft p-4">
+      <aside className="w-64 shrink-0 border-r border-borderLight bg-bgSoft p-4">
         <h2 className="text-lg font-bold text-textPrimary mb-4">Settings</h2>
         <ul className="space-y-2 text-sm">
           {items.map((it) => {

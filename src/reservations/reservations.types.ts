@@ -14,5 +14,10 @@ export interface Reservation {
   status: 'CONFIRMED' | 'TENTATIVE' | 'CANCELLED' | 'CHECKED_IN' | 'COMPLETED';
   payment_status?: 'PAID' | 'PARTIAL' | 'NOT_PAID';
   notes?: string;
+  guest_count?: number;
+  total_price?: number;
+  id_proof?: string;
+  payment_amount?: number;
+  payment_method?: string;
   created_at: number;
 }

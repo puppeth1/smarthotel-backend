@@ -81,14 +81,22 @@ export class DashboardService {
     });
 
     // 4. Pending Payments: Sum of unpaid balances
+    console.log('--- DEBUG DASHBOARD STATS ---');
+    console.log(`Total Invoices Found: ${invoices.length}`);
+    
     const pendingPayments = invoices.reduce((sum, inv) => {
-      if (inv.status !== InvoiceStatus.PAID && inv.status !== InvoiceStatus.CANCELLED) {
-        // Use balance if available, otherwise full amount (legacy/fallback)
-        const balance = typeof inv.balance === 'number' ? inv.balance : inv.amount;
-        return sum + (Number(balance) || 0);
+      // Logic: If status is NOT (PAID or CANCELLED), add the balance.
+      // If status IS PAID, balance should be 0, so adding it is fine (or 0).
+      if (inv.status !== InvoiceStatus.CANCELLED) {
+          const balance = typeof inv.balance === 'number' ? inv.balance : inv.amount;
+          console.log(`Inv ${inv.invoice_id}: Status=${inv.status}, Amount=${inv.amount}, Balance=${inv.balance}, Adding=${balance}`);
+          return sum + (Number(balance) || 0);
       }
-      return sum
+      return sum;
     }, 0)
+    
+    console.log(`Calculated Pending Payments: ${pendingPayments}`);
+    console.log('-----------------------------');
 
     // 5. Food Orders Today
     const foodOrdersToday = orders.filter((o) => {

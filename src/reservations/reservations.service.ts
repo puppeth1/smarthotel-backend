@@ -1,12 +1,17 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { Reservation } from './reservations.types';
 import { RoomsService } from '../rooms/rooms.service';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class ReservationsService {
   private reservations: Reservation[] = [];
 
-  constructor(private readonly roomsService: RoomsService) {}
+  constructor(
+    private readonly roomsService: RoomsService,
+    @Inject(forwardRef(() => BillingService))
+    private readonly billingService: BillingService
+  ) {}
 
   findAll(hotelId: string) {
     return this.reservations.filter(r => r.hotel_id === hotelId);
@@ -22,6 +27,9 @@ export class ReservationsService {
   }
 
   create(data: any, hotelId: string) {
+    console.log('--- DEBUG RESERVATION CREATE ---')
+    console.log('Received Data:', data)
+    
     // Map camelCase payload (from Save Check-In) to snake_case (internal model)
     const mappedData: Partial<Reservation> = {
       guest_name: data.guestName || data.guest_name,
@@ -31,13 +39,22 @@ export class ReservationsService {
       email: data.email,
       check_in: data.checkIn || data.check_in,
       check_out: data.checkOut || data.check_out,
-      nights: data.nights || 1, // Default to 1 if missing
+      nights: data.nights || 1, // Default to 1 if missing,
       price_per_night: data.pricePerNight || data.price_per_night,
       source: data.source || 'WALK_IN',
       status: data.status || 'CHECKED_IN', // Default to CHECKED_IN for this flow if not specified
       notes: data.notes,
+      guest_count: data.guestCount || data.guest_count || 1,
+      total_price: data.totalPrice || data.total_price || ((data.pricePerNight || 0) * (data.nights || 1)),
+      id_proof: data.idProof || data.id_proof,
       payment_status: (data.paymentStatus || data.payment_status || 'NOT_PAID').toUpperCase(),
+      payment_amount: data.paymentAmount || data.payment_amount,
+      payment_method: data.paymentMethod || data.payment_method,
     };
+
+    console.log('Mapped Payment Status:', mappedData.payment_status)
+    console.log('Mapped Payment Amount:', mappedData.payment_amount)
+    console.log('------------------------------')
 
     // Basic validation
     if (mappedData.room_number) {
@@ -59,6 +76,41 @@ export class ReservationsService {
     // If status is CHECKED_IN, update room status to OCCUPIED
     if (reservation.status === 'CHECKED_IN' && reservation.room_number) {
       this.roomsService.updateRoomStatus(reservation.room_number, 'OCCUPIED', hotelId);
+
+      // --- CREATE INVOICE FOR BOOKING ---
+      // This ensures Dashboard Revenue/Stats are updated immediately
+      // ALWAYS create an invoice, even if not paid yet.
+      const amountToPay = mappedData.total_price || 0;
+      let amountPaid = 0;
+      let method = 'CASH';
+
+      if (mappedData.payment_status && mappedData.payment_status !== 'NOT_PAID') {
+          // Determine amount paid
+          if (mappedData.payment_status === 'PAID') {
+              amountPaid = amountToPay;
+          } else if (mappedData.payment_status === 'PARTIAL') {
+              amountPaid = Number(mappedData.payment_amount) || 0;
+          }
+          
+          // If explicitly provided (overrides above logic if valid)
+          if (typeof mappedData.payment_amount === 'number' && mappedData.payment_amount > 0) {
+              amountPaid = mappedData.payment_amount;
+          }
+
+          method = (mappedData.payment_method as any) || 'CASH';
+      }
+
+      this.billingService.createInvoiceForBooking({
+          roomNumber: reservation.room_number,
+          amount: amountToPay,
+          payment: amountPaid > 0 ? {
+              method: method as any,
+              amount: amountPaid
+          } : undefined,
+          hotelId,
+          guestName: reservation.guest_name
+      }).catch(err => console.error('Failed to auto-create invoice', err));
+
     }
 
     return reservation;

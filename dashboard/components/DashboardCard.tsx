@@ -42,7 +42,7 @@ export default function DashboardCard(props: BasicProps | MetricProps) {
       PENDING_PAYMENTS: typeof m.pendingPayments === 'number' ? formatMoney(m.pendingPayments, currency?.code || 'INR', currency?.locale || 'en-IN') : m.pendingPayments,
       FOOD_ORDERS_TODAY: m.foodOrdersToday,
     }
-    value = map[props.cardKey] ?? '-'
+    value = map[props.cardKey] ?? 0
   } else {
     title = props.title
     value = props.value

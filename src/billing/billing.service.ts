@@ -188,6 +188,67 @@ export class BillingService {
     };
   }
 
+  async createInvoiceForBooking(payload: {
+    roomNumber: string,
+    amount: number,
+    payment?: { method: 'UPI' | 'CASH' | 'CARD' | 'BANK_TRANSFER', amount: number },
+    hotelId?: string,
+    guestName?: string
+  }) {
+    const hid = payload.hotelId || 'hotel_default';
+    const settings = this.hotelsService.getSettings(hid) || {};
+    
+    // Invoice number
+    const hotel = this.hotelsService.getById(hid) || this.hotelsService.getActive();
+    const hotelName = hotel?.name || 'SmartHotel';
+    const prefix = (hotelName.slice(0, 3).toUpperCase() || 'SMA') + '-INV-';
+    let nextNo = settings.nextInvoiceNumber;
+    if (typeof nextNo !== 'number') nextNo = 1;
+    const invoiceId = `${prefix}${String(nextNo).padStart(4, '0')}`;
+    this.hotelsService.saveSettings(hid, { nextInvoiceNumber: nextNo + 1 });
+
+    const totalAmount = payload.amount;
+    
+    const invoice: Invoice = {
+      invoice_id: invoiceId,
+      room_number: payload.roomNumber,
+      amount: totalAmount,
+      currency: settings?.currency?.code || 'INR',
+      status: InvoiceStatus.GENERATED,
+      created_at: new Date(),
+      subtotal: totalAmount, // Simplified for booking creation
+      taxAmount: 0,
+      totalAmount: totalAmount,
+      paidAmount: 0,
+      balance: totalAmount,
+      payments: []
+    };
+
+    // Process Payment
+    if (payload.payment && Number(payload.payment.amount) > 0) {
+      const payment: Payment = {
+        id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        amount: Number(payload.payment.amount),
+        method: payload.payment.method,
+        date: new Date(),
+      };
+      invoice.payments.push(payment);
+      invoice.paidAmount = payment.amount;
+      invoice.balance = Math.max(0, invoice.amount - invoice.paidAmount);
+      
+      invoice.status = invoice.balance <= 0 ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID;
+      
+      // CRITICAL FIX: Always update legacy fields if ANY payment is made, so dashboards can pick it up
+      invoice.paid_at = new Date();
+      invoice.payment_method = payload.payment.method;
+    }
+
+    if (!this.invoicesByHotel[hid]) this.invoicesByHotel[hid] = [];
+    this.invoicesByHotel[hid].push(invoice);
+
+    return invoice;
+  }
+
   async checkout(payload: {
     type?: 'ROOM' | 'FOOD' | 'MANUAL',
     roomNumber?: string,

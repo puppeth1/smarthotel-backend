@@ -26,10 +26,12 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
     source: 'WALK_IN',
     price_per_night: 0,
     status: 'CONFIRMED',
-    notes: ''
+    idProof: ''
   })
   const [loading, setLoading] = useState(false)
   const [rooms, setRooms] = useState<any[]>([])
+  const [recordedIDs, setRecordedIDs] = useState<any[]>([])
+  const [viewIdImage, setViewIdImage] = useState<{ url: string, title: string } | null>(null)
   
   // Load rooms to populate room number dropdown
   useEffect(() => {
@@ -71,11 +73,53 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
           source: 'WALK_IN',
           price_per_night: initialRoom?.price_per_night || initialRoom?.base_price || hotel?.settings?.roomTypes?.[0]?.basePrice || 0,
           status: 'CONFIRMED',
-          notes: ''
+          notes: '',
+          idProof: ''
         })
       }
     }
   }, [open, reservation, selectedDate, hotel, initialRoom])
+
+  // Look for recorded IDs in local storage
+  useEffect(() => {
+    if (open && formData.room_number) {
+        try {
+            const saved = localStorage.getItem('hp_checkins')
+            if (saved) {
+                const checkins = JSON.parse(saved)
+                // Find matching checkin
+                // Strategy: Match by Room Number AND Guest Name (fuzzy)
+                const match = checkins.find((c: any) => {
+                    const roomMatch = String(c.room_number) === String(formData.room_number)
+                    // Check if any guest in this checkin matches the form guest name
+                    const nameMatch = c.guest_ids?.some((g: any) => 
+                        g.guest_name?.toLowerCase().includes(formData.guest_name?.toLowerCase()) || 
+                        formData.guest_name?.toLowerCase().includes(g.guest_name?.toLowerCase())
+                    )
+                    return roomMatch && nameMatch
+                })
+
+                if (match?.guest_ids) {
+                    setRecordedIDs(match.guest_ids)
+                } else {
+                    // Fallback: If no name match, just show IDs for this room if it's currently occupied (latest checkin)
+                    // Sort by time desc
+                    const roomCheckins = checkins
+                        .filter((c: any) => String(c.room_number) === String(formData.room_number))
+                        .sort((a: any, b: any) => b.checkin_time - a.checkin_time)
+                    
+                    if (roomCheckins.length > 0) {
+                        setRecordedIDs(roomCheckins[0].guest_ids || [])
+                    } else {
+                        setRecordedIDs([])
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error loading IDs', e)
+        }
+    }
+  }, [open, formData.room_number, formData.guest_name])
 
   // Auto-update price when room type changes
   const handleRoomTypeChange = (type: string) => {
@@ -176,35 +220,47 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
           <section>
             <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-1">1. Guest Details</h3>
             <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Guest Name *</label>
-                <input 
-                  className="w-full border rounded p-2 text-sm"
-                  value={formData.guest_name}
-                  onChange={e => setFormData({...formData, guest_name: e.target.value})}
-                  placeholder="e.g. John Doe"
-                />
+              <div className="flex gap-3">
+                 <div className="flex-[1.5]">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Guest Name *</label>
+                    <input 
+                      className="w-full border rounded p-2 text-sm"
+                      value={formData.guest_name}
+                      onChange={e => setFormData({...formData, guest_name: e.target.value})}
+                      placeholder="e.g. John Doe"
+                    />
+                 </div>
+                 <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                    <input 
+                      className="w-full border rounded p-2 text-sm"
+                      value={formData.phone}
+                      onChange={e => setFormData({...formData, phone: e.target.value})}
+                      placeholder="+91..."
+                    />
+                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              
+              {/* Recorded IDs Grid - Compact */}
+              {recordedIDs.length > 0 && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-                  <input 
-                    className="w-full border rounded p-2 text-sm"
-                    value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
-                    placeholder="+91..."
-                  />
+                   <label className="block text-xs font-medium text-gray-700 mb-1">ID Proofs</label>
+                   <div className="flex flex-wrap gap-2">
+                       {recordedIDs.map((id: any, i: number) => (
+                           <div 
+                               key={i} 
+                               className="border rounded-lg p-1.5 bg-gray-50 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors"
+                               onClick={() => setViewIdImage({ url: id.front_url || id.back_url, title: `${id.guest_name} - ${id.id_type}` })}
+                           >
+                               <div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center overflow-hidden border border-gray-300 text-[10px]">
+                                   {id.front_url ? <img src={id.front_url} alt="ID" className="w-full h-full object-cover" /> : '🆔'}
+                               </div>
+                               <span className="text-xs font-medium truncate max-w-[100px]">{id.id_type}</span>
+                           </div>
+                       ))}
+                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                  <input 
-                    className="w-full border rounded p-2 text-sm"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
-                    placeholder="john@example.com"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           </section>
 
@@ -237,8 +293,8 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
           {/* 3. Room Details */}
           <section>
             <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-1">3. Room Details</h3>
-            <div className="space-y-3">
-              <div>
+            <div className="flex gap-3">
+              <div className="flex-[2]">
                 <label className="block text-xs font-medium text-gray-700 mb-1">Room Type *</label>
                 <select 
                   className="w-full border rounded p-2 text-sm"
@@ -251,28 +307,25 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Room Number</label>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Room No.</label>
                 <select 
                   className="w-full border rounded p-2 text-sm"
                   value={formData.room_number}
                   onChange={e => setFormData({...formData, room_number: e.target.value})}
                 >
-                  <option value="">Auto-assign / Select later</option>
+                  <option value="">-</option>
                   {availableRooms.map(r => (
                     <option key={r.room_number} value={r.room_number}>
-                       {r.room_number} {r.status !== 'AVAILABLE' ? `(${r.status})` : ''}
+                       {r.room_number}
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
-                   Only showing rooms matching selected type.
-                </p>
               </div>
             </div>
           </section>
 
-          {/* 4. Source & Status */}
+          {/* 4. Details */}
           <section>
              <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-1">4. Details</h3>
              <div className="space-y-3">
@@ -292,37 +345,42 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
                    <option value="OTHER">Other</option>
                  </select>
                </div>
-               <div>
-                 <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                 <div className="flex gap-2">
-                    {['CONFIRMED', 'TENTATIVE', 'CANCELLED'].map(s => (
-                        <label key={s} className="flex items-center gap-1 cursor-pointer">
-                            <input 
-                                type="radio" 
-                                name="status" 
-                                value={s} 
-                                checked={formData.status === s}
-                                onChange={e => setFormData({...formData, status: e.target.value})}
-                            />
-                            <span className="text-xs capitalize">{s.toLowerCase()}</span>
-                        </label>
-                    ))}
-                 </div>
-               </div>
              </div>
           </section>
           
            {/* 5. Pricing */}
            <section>
             <h3 className="text-sm font-semibold text-gray-900 mb-3 border-b pb-1">5. Pricing</h3>
-            <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Price per Night</label>
-                <input 
-                  type="number"
-                  className="w-full border rounded p-2 text-sm"
-                  value={formData.price_per_night}
-                  onChange={e => setFormData({...formData, price_per_night: e.target.value})}
-                />
+            <div className="space-y-3">
+                <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Price per Night</label>
+                    <input 
+                      type="number"
+                      className="w-full border rounded p-2 text-sm"
+                      value={formData.price_per_night}
+                      onChange={e => setFormData({...formData, price_per_night: e.target.value})}
+                    />
+                </div>
+                
+                {/* Payment Status Display (Read-Only) */}
+                {reservation && (
+                   <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-2 border">
+                      <div className="flex justify-between items-center">
+                         <span className="text-gray-500">Total Amount</span>
+                         <span className="font-medium text-gray-900">₹{formatMoney(Number(formData.price_per_night) * nights)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                         <span className="text-gray-500">Paid Amount</span>
+                         <span className="font-medium text-green-600">₹{formatMoney(reservation.payment_amount || 0)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-dashed border-gray-300">
+                         <span className="font-medium text-gray-900">Pending</span>
+                         <span className="font-bold text-red-600">
+                            ₹{formatMoney(Math.max(0, (Number(formData.price_per_night) * nights) - (reservation.payment_amount || 0)))}
+                         </span>
+                      </div>
+                   </div>
+                )}
             </div>
            </section>
 
@@ -366,6 +424,22 @@ export default function ReservationDrawer({ open, onClose, reservation, onSave, 
           </div>
         </div>
       </div>
+      
+      {/* Image Viewer Modal */}
+      {viewIdImage && (
+        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4" onClick={() => setViewIdImage(null)}>
+            <div className="absolute top-4 right-4 text-white cursor-pointer" onClick={() => setViewIdImage(null)}>
+                ✕ Close
+            </div>
+            <img 
+                src={viewIdImage.url} 
+                alt="ID Full View" 
+                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl bg-white"
+                onClick={e => e.stopPropagation()}
+            />
+            <div className="mt-4 text-white font-medium text-lg">{viewIdImage.title}</div>
+        </div>
+      )}
     </div>
   )
 }

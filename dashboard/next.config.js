@@ -1,7 +1,7 @@
 const path = require('path')
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // output: 'export', // Disabled to support API Routes
   images: {
     unoptimized: true,
   },

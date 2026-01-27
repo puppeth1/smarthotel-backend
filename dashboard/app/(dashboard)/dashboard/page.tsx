@@ -67,7 +67,7 @@ export default function HomePage() {
     let mounted = true
     async function load() {
       try {
-        const cfgRes = await fetch(`${API_URL}/dashboard/config`)
+        const cfgRes = await fetch(`/api/dashboard/config`)
         const cfgJson = await cfgRes.json()
         const cards: DashboardCardKey[] = (cfgJson?.cards || []) as DashboardCardKey[]
         if (mounted && cards.length) setSelectedCards(cards)

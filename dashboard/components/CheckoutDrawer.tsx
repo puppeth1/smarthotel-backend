@@ -43,13 +43,25 @@ export default function CheckoutDrawer({
     return Math.max(1, diff)
   }, [checkIn, checkOut])
 
-  const subtotal = pricePerNight * nights
-  const taxAmount = Math.round(subtotal * (taxPercent / 100))
-  const totalAmount = subtotal + taxAmount
+  // Calculate payment details
+  const totalAmount = useMemo(() => {
+    if (!booking) return 0
+    // Use stored total if available, otherwise calculate
+    if (booking.total_price) return Number(booking.total_price)
+    
+    // Fallback calculation
+    const ppn = Number(booking.price_per_night) || 0
+    return ppn * nights
+  }, [booking, nights])
+
+  const paidAlready = useMemo(() => {
+    return Number(booking?.payment_amount) || 0
+  }, [booking])
   
-  const paidAmount = parseFloat(pay.amount || '0')
-  const balance = Math.max(0, totalAmount - paidAmount)
-  const status = balance <= 0 ? 'PAID' : (paidAmount > 0 ? 'PARTIALLY PAID' : 'UNPAID')
+  const currentPayAmount = parseFloat(pay.amount || '0')
+  const totalPaid = paidAlready + currentPayAmount
+  const balance = Math.max(0, totalAmount - totalPaid)
+  const status = balance <= 0 ? 'PAID' : (totalPaid > 0 ? 'PARTIALLY PAID' : 'UNPAID')
 
   // Fetch Booking
   useEffect(() => {
@@ -233,51 +245,49 @@ export default function CheckoutDrawer({
                 {/* 2. Bill Summary */}
                 <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Price per night</span>
-                        <span className="font-medium">{fmt(pricePerNight)}</span>
+                        <span className="text-gray-600">Total Bill</span>
+                        <span className="font-medium">{fmt(totalAmount)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Nights</span>
-                        <span className="font-medium">{nights}</span>
+                    <div className="flex justify-between text-sm text-green-700">
+                        <span>Paid Previously</span>
+                        <span>{fmt(paidAlready)}</span>
                     </div>
-                    <div className="flex justify-between text-sm font-medium pt-2 border-t border-gray-200">
-                        <span>Subtotal</span>
-                        <span>{fmt(subtotal)}</span>
-                    </div>
-                    {taxPercent > 0 && (
-                        <div className="flex justify-between text-sm text-gray-600">
-                            <span>Tax ({taxPercent}%)</span>
-                            <span>{fmt(taxAmount)}</span>
-                        </div>
-                    )}
                     <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-200 mt-2">
-                        <span>Total Amount</span>
-                        <span>{fmt(totalAmount)}</span>
+                        <span>Pending Balance</span>
+                        <span className="text-red-600">{fmt(Math.max(0, totalAmount - paidAlready))}</span>
                     </div>
                 </div>
 
                 {/* 3. Payment (Editable) */}
                 <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Payment</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Final Settlement</h3>
                     
-                    <PaymentSelector 
-                        value={pay.method} 
-                        onChange={(m) => setPay({ ...pay, method: m })} 
-                    />
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount Received</label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-gray-500">{currency?.symbol || '₹'}</span>
-                            <input 
-                                type="number" 
-                                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-black focus:border-black"
-                                value={pay.amount}
-                                onChange={(e) => setPay({ ...pay, amount: e.target.value })}
-                                placeholder="0.00"
+                    {balance > 0 ? (
+                        <>
+                            <PaymentSelector 
+                                value={pay.method} 
+                                onChange={(m) => setPay({ ...pay, method: m })} 
                             />
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Amount Receiving Now</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-2.5 text-gray-500">{currency?.symbol || '₹'}</span>
+                                    <input 
+                                        type="number" 
+                                        className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-black focus:border-black"
+                                        value={pay.amount}
+                                        onChange={(e) => setPay({ ...pay, amount: e.target.value })}
+                                        placeholder={String(Math.max(0, totalAmount - paidAlready))}
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="p-4 bg-green-50 text-green-800 rounded-lg text-center font-medium border border-green-200">
+                            ✅ Fully Paid
                         </div>
-                    </div>
+                    )}
 
                     {/* Status Preview */}
                     <div className={`p-3 rounded-lg text-center font-medium text-sm ${
@@ -285,7 +295,7 @@ export default function CheckoutDrawer({
                         status === 'PARTIALLY PAID' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-red-100 text-red-700'
                     }`}>
-                        Balance: {fmt(balance)} ({status})
+                        Remaining after this payment: {fmt(balance)}
                     </div>
                 </div>
             </>

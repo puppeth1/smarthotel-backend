@@ -255,7 +255,7 @@ export default function RoomsPage() {
 
                   {/* Price */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatMoney(Number(displayPrice), currency?.code || 'INR', currency?.locale || 'en-IN')}
+                    {formatMoney(Number(displayPrice), currency?.code, currency?.locale).replace(/[^\d.]/g, '')}
                     {/* Only show 'per night' if vacant, otherwise it implies booked price */}
                     {!isOccupied && <span className="text-xs text-gray-400 block">per night</span>}
                   </td>
@@ -274,7 +274,7 @@ export default function RoomsPage() {
                             </span>
                             {booking?.total_price && (
                                 <span className="text-xs text-gray-500 font-medium">
-                                    {formatMoney(booking.total_price, currency?.code || 'INR', currency?.locale || 'en-IN')}
+                                    {formatMoney(booking.total_price, currency?.code, currency?.locale).replace(/[^\d.]/g, '')}
                                 </span>
                             )}
                         </div>
@@ -285,12 +285,13 @@ export default function RoomsPage() {
 
                   {/* Actions */}
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex flex-col gap-2 items-end">
+                    <div className="flex justify-end gap-2">
                       <ActionButton 
                         onClick={() => handleEdit(room)} 
                         icon={<PencilIcon className="w-4 h-4" />}
                         label="Edit"
-                        className="w-24 justify-center"
+                        hideLabel
+                        className="text-gray-500 hover:text-black hover:bg-gray-100 border-transparent w-8 h-8 justify-center !p-0"
                       />
 
                       {room.computed_status === 'VACANT' && (
@@ -304,13 +305,15 @@ export default function RoomsPage() {
                             onClick={() => handleViewBooking(room)} 
                             icon={<EyeIcon className="w-4 h-4" />}
                             label="View"
-                            className="w-24 justify-center"
+                            hideLabel
+                            className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 border-transparent w-8 h-8 justify-center !p-0"
                           />
                           <ActionButton 
                             onClick={() => handleCheckout(room)} 
                             icon={<ArrowRightOnRectangleIcon className="w-4 h-4" />}
                             label="Checkout"
-                            className="text-red-600 hover:bg-red-50 border-red-200 w-24 justify-center"
+                            hideLabel
+                            className="text-gray-500 hover:text-orange-600 hover:bg-orange-50 border-transparent w-8 h-8 justify-center !p-0"
                           />
                         </>
                       )}
@@ -320,7 +323,8 @@ export default function RoomsPage() {
                           onClick={() => toggleMaintenance(room)} 
                           icon={<CheckCircleIcon className="w-4 h-4" />}
                           label="Activate"
-                          className="text-green-600 hover:bg-green-50 border-green-200 w-24 justify-center"
+                          hideLabel
+                          className="text-gray-500 hover:text-green-600 hover:bg-green-50 border-transparent w-8 h-8 justify-center !p-0"
                         />
                       )}
 
@@ -332,7 +336,8 @@ export default function RoomsPage() {
                         }} 
                         icon={<TrashIcon className="w-4 h-4" />}
                         label="Delete"
-                        className="text-red-600 hover:bg-red-50 border-red-200 w-24 justify-center"
+                        hideLabel
+                        className="text-gray-500 hover:text-red-600 hover:bg-red-50 border-transparent w-8 h-8 justify-center !p-0"
                       />
                     </div>
                   </td>
@@ -416,7 +421,7 @@ function StatusBadge({ status }: { status?: string }) {
   )
 }
 
-function ActionButton({ onClick, icon, label, primary, className }: any) {
+function ActionButton({ onClick, icon, label, primary, className, hideLabel }: any) {
   return (
     <button
       onClick={onClick}
@@ -430,7 +435,7 @@ function ActionButton({ onClick, icon, label, primary, className }: any) {
       title={label}
     >
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      {!hideLabel && <span className="hidden sm:inline">{label}</span>}
     </button>
   )
 }

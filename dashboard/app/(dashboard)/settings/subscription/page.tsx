@@ -26,7 +26,7 @@ export default function SubscriptionSettingsPage() {
       </div>
 
       <div className="mt-6">
-        <button className="px-4 py-2 rounded bg-accentPrimary text-textPrimary font-medium">Upgrade Plan</button>
+        <a href="/subscription" className="inline-block px-4 py-2 rounded bg-accentPrimary text-textPrimary font-medium">Upgrade Plan</a>
       </div>
     </div>
   )

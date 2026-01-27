@@ -34,8 +34,12 @@ export default function TopNav() {
             <Link href="/rooms" className="hover:text-black transition">Rooms</Link>
             <Link href="/reservations" className="hover:text-black transition">Reservations</Link>
             <Link href="/orders" className="hover:text-black transition">Orders</Link>
+            <Link href="/attendance" className="hover:text-black transition">Attendance</Link>
             <Link href="/inventory" className="hover:text-black transition">Inventory</Link>
+            <Link href="/revenue" className="hover:text-black transition">Revenue</Link>
+            <Link href="/expenses" className="hover:text-black transition">Expenses</Link>
             <Link href="/billing" className="hover:text-black transition">Billing</Link>
+            <Link href="/menu" className="hover:text-black transition">Menu</Link>
             <Link href="/settings" className="hover:text-black transition">Settings</Link>
             <button 
               onClick={() => signOut(auth)} 

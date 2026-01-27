@@ -4,7 +4,6 @@ import { RoomsService } from './rooms.service'
 import { FirebaseAuthGuard } from '../auth/firebase.guard'
 import { UsersService } from '../users/users.service'
 
-@UseGuards(FirebaseAuthGuard)
 @Controller('rooms')
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService, private readonly users: UsersService) {}

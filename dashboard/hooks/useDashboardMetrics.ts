@@ -17,7 +17,7 @@ export function useDashboardMetrics() {
     if (!summaryData) {
         setLoadingSummary(true)
     }
-    fetch(`${API_URL}/dashboard/summary`)
+    fetch(`/api/dashboard/summary`)
       .then((res) => res.json())
       .then((json) => {
         const flat = {

@@ -9,7 +9,7 @@ async function bootstrap() {
   if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.applicationDefault(),
-      projectId: 'smarthotel-392319',
+      projectId: 'smarthotel-prod',
     })
   }
 

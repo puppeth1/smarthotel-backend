@@ -1,5 +1,6 @@
 'use client'
 import { useContext, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AuthContext } from '@/components/AuthProvider'
 import SettingsPanel from './SettingsPanel'
 import { useHotel } from './HotelProvider'
@@ -9,6 +10,7 @@ import AddInventoryDrawer from './AddInventoryDrawer'
 import AddMenuDrawer from './AddMenuDrawer'
 import CreateOrderDrawer from './CreateOrderDrawer'
 import CheckoutDrawer from './CheckoutDrawer'
+import AddExpenseDrawer from './AddExpenseDrawer'
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   'https://smarthotel-backend-984031420056.asia-south1.run.app'
@@ -32,6 +34,7 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
   const [menuOpen, setMenuOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [expenseOpen, setExpenseOpen] = useState(false)
 
   useEffect(() => {
     try {
@@ -308,6 +311,12 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
           </button>
           <button
             className="px-3 py-2 rounded-lg bg-bgSoft text-textPrimary border border-borderLight hover:bg-accentSecondary"
+            onClick={() => setExpenseOpen(true)}
+          >
+            💸 Add Expense
+          </button>
+          <button
+            className="px-3 py-2 rounded-lg bg-bgSoft text-textPrimary border border-borderLight hover:bg-accentSecondary"
             onClick={() => setMenuOpen(true)}
           >
             🍽 Add Menu
@@ -357,6 +366,7 @@ export default function ChatAgent({ showSidebar = true, useExternalInput = false
         <AddMenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)} onSave={submitAction} />
         <CreateOrderDrawer open={orderOpen} onClose={() => setOrderOpen(false)} onSave={submitAction} />
         <CheckoutDrawer open={checkoutOpen} onClose={() => { setCheckoutOpen(false); window.dispatchEvent(new CustomEvent('hp_refresh_stats')); }} room={null} />
+        <AddExpenseDrawer open={expenseOpen} onClose={() => setExpenseOpen(false)} onSave={submitAction} />
           </>
         )}
       </section>

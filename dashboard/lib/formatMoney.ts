@@ -1,6 +1,6 @@
 'use client'
 
-export function formatMoney(amount: number, currencyCode: string, locale: string) {
+export function formatMoney(amount: number, currencyCode: string = 'INR', locale: string = 'en-IN') {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currencyCode,
